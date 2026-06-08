@@ -77,11 +77,13 @@ export default function GuidePage() {
 
         <h3>5. CompanyCam Integration</h3>
         <ul>
-          <li>Click &quot;Find Photos&quot; on any job</li>
-          <li>Auto-searches CompanyCam for a project matching &quot;Starbucks #XXXXX WO# XXXXXXX&quot;</li>
-          <li>If found, automatically loads and selects all photos (front door + 2 before + 2 after)</li>
-          <li>You see thumbnails and confirm they&apos;re correct before sending</li>
-          <li>If the exact name doesn&apos;t match, shows similar projects so you can pick the right one</li>
+        <li>Click &quot;Find Photos&quot; on any job</li>
+        <li>Auto-searches CompanyCam for a project matching &quot;Starbucks #XXXXX WO# XXXXXXX&quot;</li>
+        <li>If found, automatically loads and selects all photos</li>
+        <li>You see thumbnails and confirm they&apos;re correct before sending</li>
+        <li>If the exact name doesn&apos;t match, shows similar projects so you can pick the right one</li>
+        <li><strong>2026 requirement:</strong> minimum 12 before/after photos covering 6 areas (front door entry, sidewalk, patio, drive-thru pick-up window, between ordering &amp; pick-up area, drive-thru ordering area) + 1 storefront overview showing the door number</li>
+        <li>The app shows a warning if fewer than 12 photos are selected</li>
         </ul>
 
         <h3>6. Email Sending</h3>

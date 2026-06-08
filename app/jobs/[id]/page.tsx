@@ -442,9 +442,12 @@ export default function JobDetailPage() {
         </div>
 
         {!ccSearching && ccPhotos.length === 0 && ccProjects.length === 0 && !ccError && (
-          <p className="text-gray-500 text-sm mb-3">
-            Click &quot;Find Photos&quot; to search for project &quot;Starbucks #{job.storeNumber}{job.woNumber ? ` WO# ${job.woNumber}` : ''}&quot;
-          </p>
+          <div className="text-sm mb-3 space-y-1">
+            <p className="text-gray-500">
+              Click &quot;Find Photos&quot; to search for project &quot;Starbucks #{job.storeNumber}{job.woNumber ? ` WO# ${job.woNumber}` : ''}&quot;
+            </p>
+            <p className="text-yellow-500/80 text-xs">⚠️ New requirements (June 2026): 12+ photos required — before &amp; after for 6 areas + 1 storefront overview. Submit within 24 business hours.</p>
+          </div>
         )}
 
         {ccError && <p className="text-yellow-400 text-sm mb-3">{ccError}</p>}
@@ -474,10 +477,12 @@ export default function JobDetailPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="text-gray-400 text-sm">
-                {ccPhotos.length} photo(s) — {selectedPhotos.size} selected
-                {selectedPhotos.size === ccPhotos.length && ccPhotos.length > 0 && (
-                  <span className="text-green-400 ml-1">(all selected)</span>
-                )}
+                {ccPhotos.length} photo(s) found — {selectedPhotos.size} selected
+                {selectedPhotos.size >= 12 ? (
+                  <span className="text-green-400 ml-1">✓ meets 12-photo minimum</span>
+                ) : selectedPhotos.size > 0 ? (
+                  <span className="text-yellow-400 ml-1">⚠️ need {12 - selectedPhotos.size} more (12 min required)</span>
+                ) : null}
               </p>
               <button
                 onClick={() => {
@@ -578,6 +583,9 @@ export default function JobDetailPage() {
                 </p>
                 <p className="text-gray-500 text-xs">To: starbucks@gosuperclean.com</p>
                 <p className="text-gray-500 text-xs">Attachments: {selectedPhotos.size} photo(s) from CompanyCam</p>
+                {selectedPhotos.size > 0 && selectedPhotos.size < 12 && (
+                  <p className="text-yellow-400 text-xs mt-1">⚠️ GoSuperClean requires 12+ photos — you have {selectedPhotos.size}</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button

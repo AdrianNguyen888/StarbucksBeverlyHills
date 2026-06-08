@@ -134,8 +134,10 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
     'Service window starts 1 hour after closing, finishes 2 hours before opening. Most stores are open 5AM-9PM on weekdays and close at 10PM/11PM on weekends. Store may not ' +
     'have an operational outside water spigot. Crew must be prepared to provide water via a water tank.  Crews must ensure compliance with all jurisdictional ' +
     'requirements. Chemicals used must be "Green" and not harmful. All personnel must wear appropriate PPE, including gloves, safety goggles, ear protection, and ' +
-    'non-slip footwear.  Drive thru cleaned 30\' before drive to 10\' after the service window. Pictures are required for payment with a 5 photo minimum, 2 before & ' +
-    'after pictures, 1 picture of the front door area with address on it. Report back to Account Manager if there are any safety/security issues noted during services.';
+    'non-slip footwear.  Drive thru cleaned 30\' before drive to 10\' after the service window. Pictures are required for payment with a minimum of 12 before & after photos ' +
+    'covering 6 areas: front door entry, sidewalk, patio (if applicable), drive-thru pick-up window, between ordering area and pick-up window, and drive-thru ordering area. ' +
+    '1 storefront overview photo showing the door number is also required. Photos must be submitted within 24 business hours of completion. ' +
+    'Report back to Account Manager if there are any safety/security issues noted during services.';
 
   const instrLines = doc.splitTextToSize(instrText, pageWidth - margin * 2 - 8);
   doc.text(instrLines, margin + 4, y + 10);
@@ -154,11 +156,13 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   const photoCol1 = margin;
   const photoCol2 = pageWidth / 2 + 10;
 
-  doc.text('IMPORTANT! 5 PHOTOS ARE REQUIRED FOR PAYMENT', photoCol1, y);
-  doc.text('OF SERVICES ! TWO AREAS  OF PHOTOS', photoCol2, y);
+  doc.text('IMPORTANT! 12+ PHOTOS REQUIRED FOR PAYMENT', photoCol1, y);
+  doc.text('1 STOREFRONT OVERVIEW (SHOWING DOOR #)', photoCol2, y);
   y += 12;
-  doc.text('THAT HAVE BEFORE AND AFTER  TAKEN AND 1 PHOTO', photoCol1, y);
-  doc.text('TAKEN OF FRONT DOOR WITH ADDRESS', photoCol2, y);
+  doc.text('BEFORE & AFTER FOR: FRONT DOOR, SIDEWALK, PATIO,', photoCol1, y);
+  doc.text('DRIVE-THRU PICK-UP, ORDERING AREA, BETWEEN AREAS', photoCol2, y);
+  y += 12;
+  doc.text('SUBMIT WITHIN 24 BUSINESS HOURS OF COMPLETION', photoCol1, y);
   y += 18;
 
   // ─── DIVIDER ───
@@ -183,7 +187,11 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
     'Pre treat all heavy stains using "Green" chemicals',
     'Remove tables and chairs & replace after service',
     'Sidewalks, patio, and backdoor pad power washed',
-    'Take before and after photos (5 minimum required)',
+    'Take before and after photos (12 minimum — 6 areas required)',
+    'Areas: front door, sidewalk, patio, drive-thru pick-up window,',
+    'between ordering & pick-up area, drive-thru ordering area',
+    '1 storefront overview showing door number',
+    'Submit photos within 24 business hours of completion',
     'Make sure  wastewater properly disposed of',
     'Wipe down windows of any over spray',
     'Photos sent to   Starbucks@gosuperclean.com',
