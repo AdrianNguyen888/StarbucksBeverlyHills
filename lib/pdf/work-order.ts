@@ -211,7 +211,7 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   const fieldLineX = margin + 95;
 
   const completedDate = formatDateShort(data.serviceDate);
-  const techName = data.technician || 'Rolling Suds of Westchester-Stamford';
+  const techName = data.technician || 'Rolling Suds of Beverly Hills';
   const startFormatted = formatTime(data.startTime);
   const stopFormatted = formatTime(data.stopTime);
   const totalHrs = calculateHours(data.startTime, data.stopTime);
@@ -261,16 +261,15 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   const scaleX = sigTargetWidth / SIG_NW;
   const scaleY = sigTargetHeight / SIG_NH;
 
-  doc.setFillColor('#1a1a2e');
-  for (const [sx, sy, sw] of SIG_SEGS) {
-    doc.rect(
-      sigX + sx * scaleX,
-      sigY + sy * scaleY,
-      sw * scaleX,
-      scaleY,
-      'F'
-    );
-  }
+  // Render signature — italic tech name as handwritten-style placeholder
+  // TODO: Replace with Adrian's actual signature image (convert to SIG_SEGS pixel map)
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setFontSize(18);
+  doc.setTextColor('#1a1a2e');
+  doc.text(techName, sigX, y - 2);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(black);
 
   y += 30;
 
