@@ -678,7 +678,7 @@ export default function JobDetailPage() {
                       Email: 'starbucks@gosuperclean.com',
                       JobNotes: `Pressure Wash Patio/Sidewalk/Drive Thru - Starbucks #${job.storeNumber}`,
                       JobDateTime: job.serviceDate + ' 22:00',
-                      JobType: 'starbucks',
+                      JobType: 'starbucks_cleaning',
                     }),
                   });
                   const data = await res.json();
