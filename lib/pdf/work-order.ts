@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { SIG_SEGS, SIG_NW, SIG_NH } from '../signature';
+import { ADRIAN_SIGNATURE_B64 } from '../adrian-signature-image';
 
 interface WorkOrderData {
   storeNumber: string;
@@ -253,23 +253,12 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   doc.text('Tech Signature:', fieldLabelX, y);
   doc.line(fieldLineX, y + 1, fieldLineX + fieldLineWidth, y + 1);
 
-  // Render vector signature on the line
-  const sigTargetWidth = 140;
-  const sigTargetHeight = (SIG_NH / SIG_NW) * sigTargetWidth;
-  const sigX = fieldLineX + 8;
-  const sigY = y - sigTargetHeight + 2; // position so signature sits ON the line
-  const scaleX = sigTargetWidth / SIG_NW;
-  const scaleY = sigTargetHeight / SIG_NH;
-
-  // Render signature — italic tech name as handwritten-style placeholder
-  // TODO: Replace with Adrian's actual signature image (convert to SIG_SEGS pixel map)
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(18);
-  doc.setTextColor('#1a1a2e');
-  doc.text(techName, sigX, y - 2);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(black);
+  // Render Adrian's real signature as image
+  const sigTargetWidth = 120;
+  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth); // preserve aspect ratio
+  const sigX = fieldLineX + 4;
+  const sigY = y - sigTargetHeight + 4;
+  doc.addImage(ADRIAN_SIGNATURE_B64, 'PNG', sigX, sigY, sigTargetWidth, sigTargetHeight);
 
   y += 30;
 
