@@ -253,11 +253,11 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   doc.text('Tech Signature:', fieldLabelX, y);
   doc.line(fieldLineX, y + 1, fieldLineX + fieldLineWidth, y + 1);
 
-  // Render Adrian's real signature as image
-  const sigTargetWidth = 120;
-  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth); // preserve aspect ratio
+  // Render Adrian's real signature — sits on the signature line
+  const sigTargetWidth = 110;
+  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth);
   const sigX = fieldLineX + 4;
-  const sigY = y - sigTargetHeight + 4;
+  const sigY = y - sigTargetHeight + 6;
   doc.addImage(ADRIAN_SIGNATURE_B64, 'PNG', sigX, sigY, sigTargetWidth, sigTargetHeight);
 
   y += 30;
@@ -307,7 +307,11 @@ function formatDateShort(dateStr: string): string {
 
 function formatTime(time: string): string {
   if (!time) return '';
+  // Already formatted (contains AM/PM) — pass through
+  if (/[AaPp][Mm]/.test(time)) return time.trim();
+  // 24h format — convert
   const [h, m] = time.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return '';
   const ampm = h >= 12 ? 'PM' : 'AM';
   const hour = h % 12 || 12;
   return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
@@ -315,13 +319,25 @@ function formatTime(time: string): string {
 
 function calculateHours(start: string, stop: string): string {
   if (!start || !stop) return '';
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = stop.split(':').map(Number);
-  const startMin = sh * 60 + sm;
-  let endMin = eh * 60 + em;
+
+  // Parse time string to minutes since midnight
+  function toMinutes(t: string): number {
+    const isPM = /[Pp][Mm]/.test(t);
+    const isAM = /[Aa][Mm]/.test(t);
+    const clean = t.replace(/[AaPpMm]/g, '').trim();
+    const [h, m] = clean.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return NaN;
+    if (isPM && h !== 12) return (h + 12) * 60 + m;
+    if (isAM && h === 12) return m; // 12:xx AM = 00:xx
+    return h * 60 + m;
+  }
+
+  const startMin = toMinutes(start);
+  let endMin = toMinutes(stop);
+  if (isNaN(startMin) || isNaN(endMin)) return '';
   if (endMin < startMin) endMin += 24 * 60; // overnight
   const diff = endMin - startMin;
   const hours = Math.floor(diff / 60);
   const mins = diff % 60;
-  return `${hours}h ${mins}m`;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours} hrs`;
 }
