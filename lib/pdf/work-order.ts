@@ -258,7 +258,7 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   const sigTargetWidth = 90;
   const sigTargetHeight = Math.round(0.375 * sigTargetWidth); // ~34pts
   const sigX = fieldLineX + fieldLineWidth - sigTargetWidth - 4;
-  const sigY = y - sigTargetHeight + 2;
+  const sigY = y - sigTargetHeight + 16; // +14 = one line down, sits on Tech Signature underline
   doc.addImage(ADRIAN_SIGNATURE_B64, 'PNG', sigX, sigY, sigTargetWidth, sigTargetHeight);
 
   y += 16;
