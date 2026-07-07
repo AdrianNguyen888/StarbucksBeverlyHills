@@ -211,7 +211,7 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   const fieldLineX = margin + 95;
 
   const completedDate = formatDateShort(data.serviceDate);
-  const techName = data.technician || 'Rolling Suds of Beverly Hills';
+  const techName = 'Adrian Nguyen';
   const startFormatted = formatTime(data.startTime);
   const stopFormatted = formatTime(data.stopTime);
   const totalHrs = calculateHours(data.startTime, data.stopTime);
@@ -247,20 +247,24 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   doc.text('Total Hours:', fieldLabelX, y);
   doc.line(fieldLineX, y + 1, fieldLineX + fieldLineWidth, y + 1);
   if (totalHrs) doc.text(totalHrs, fieldLineX + 4, y);
-  y += 22;
+  y += 14;
 
   // ─── TECH SIGNATURE ───
+  // Reserve space above the label for the signature image
+  const sigTargetWidth = 110;
+  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth); // ~58 pts
+
+  y += sigTargetHeight + 4; // push label down so image has room above it
+
   doc.text('Tech Signature:', fieldLabelX, y);
   doc.line(fieldLineX, y + 1, fieldLineX + fieldLineWidth, y + 1);
 
-  // Render Adrian's real signature — sits on the signature line
-  const sigTargetWidth = 110;
-  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth);
+  // Signature sits on the line — drawn from above the baseline
   const sigX = fieldLineX + 4;
-  const sigY = y - sigTargetHeight + 6;
+  const sigY = y - sigTargetHeight + 2;
   doc.addImage(ADRIAN_SIGNATURE_B64, 'PNG', sigX, sigY, sigTargetWidth, sigTargetHeight);
 
-  y += 30;
+  y += 20;
 
   // ─── FOOTER ───
   doc.setLineWidth(0.5);
