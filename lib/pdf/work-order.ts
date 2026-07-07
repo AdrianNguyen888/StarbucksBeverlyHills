@@ -254,10 +254,11 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   doc.text('Tech Signature:', fieldLabelX, y);
   doc.line(fieldLineX, y + 1, fieldLineX + fieldLineWidth, y + 1);
 
+  // Cropped to ink bounds (368x138 original crop) — aspect ratio 0.375
   const sigTargetWidth = 110;
-  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth); // ~58 pts
+  const sigTargetHeight = Math.round(0.375 * sigTargetWidth); // ~41 pts, tightly cropped
   const sigX = fieldLineX + 4;
-  const sigY = y - sigTargetHeight + 4; // bottom of image sits on the line, image floats upward
+  const sigY = y - sigTargetHeight; // bottom of ink sits exactly on the line
   doc.addImage(ADRIAN_SIGNATURE_B64, 'PNG', sigX, sigY, sigTargetWidth, sigTargetHeight);
 
   y += 16;
