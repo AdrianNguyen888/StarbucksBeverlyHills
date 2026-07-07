@@ -250,21 +250,17 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
   y += 14;
 
   // ─── TECH SIGNATURE ───
-  // Reserve space above the label for the signature image
-  const sigTargetWidth = 110;
-  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth); // ~58 pts
-
-  y += sigTargetHeight + 4; // push label down so image has room above it
-
+  // Draw label and underline first, then overlay signature image on the line
   doc.text('Tech Signature:', fieldLabelX, y);
   doc.line(fieldLineX, y + 1, fieldLineX + fieldLineWidth, y + 1);
 
-  // Signature sits on the line — drawn from above the baseline
+  const sigTargetWidth = 110;
+  const sigTargetHeight = Math.round((360 / 678) * sigTargetWidth); // ~58 pts
   const sigX = fieldLineX + 4;
-  const sigY = y - sigTargetHeight + 2;
+  const sigY = y - sigTargetHeight + 4; // bottom of image sits on the line, image floats upward
   doc.addImage(ADRIAN_SIGNATURE_B64, 'PNG', sigX, sigY, sigTargetWidth, sigTargetHeight);
 
-  y += 20;
+  y += 16;
 
   // ─── FOOTER ───
   doc.setLineWidth(0.5);
