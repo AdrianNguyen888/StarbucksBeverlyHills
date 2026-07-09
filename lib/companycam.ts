@@ -27,6 +27,11 @@ export interface CCProject {
   updated_at: number;
 }
 
+export interface CCPhotoLabel {
+  id: string;
+  name: string; // e.g. "Before", "After"
+}
+
 export interface CCPhoto {
   id: string;
   uri: string;
@@ -38,6 +43,7 @@ export interface CCPhoto {
   captured_at: number;
   created_at: number;
   photo_url?: string;
+  labels?: CCPhotoLabel[];
 }
 
 /**
@@ -110,10 +116,23 @@ export async function findStarbucksProject(
 }
 
 /**
- * Get all photos for a project
+ * Get all photos for a project, with labels sideloaded.
+ * CompanyCam v2 supports include[]=labels to get Before/After labels in one call.
  */
 export async function getProjectPhotos(projectId: string, perPage = 50): Promise<CCPhoto[]> {
-  return ccFetch(`/projects/${projectId}/photos?per_page=${perPage}`);
+  const photos = await ccFetch(`/projects/${projectId}/photos?per_page=${perPage}&include[]=labels`) as CCPhoto[];
+  return photos;
+}
+
+/**
+ * Fetch labels for a single photo (fallback if sideload not available)
+ */
+export async function getPhotoLabels(photoId: string): Promise<CCPhotoLabel[]> {
+  try {
+    return await ccFetch(`/photos/${photoId}/labels`) as CCPhotoLabel[];
+  } catch {
+    return [];
+  }
 }
 
 /**

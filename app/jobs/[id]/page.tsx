@@ -12,6 +12,11 @@ interface CCProject {
   name: string;
 }
 
+interface CCPhotoLabel {
+  id: string;
+  name: string;
+}
+
 interface CCPhoto {
   id: string;
   urls?: { original?: string; thumbnail?: string };
@@ -20,6 +25,7 @@ interface CCPhoto {
   photo_url?: string;
   captured_at?: number;
   created_at?: number;
+  labels?: CCPhotoLabel[];
 }
 
 export default function JobDetailPage() {
@@ -144,9 +150,13 @@ export default function JobDetailPage() {
         setCcMatchedProject(data.project.name);
         const photos = data.photos || [];
         setCcPhotos(photos);
-        // Auto-select all photos (typically exactly 5)
-        const allUrls = photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
-        setSelectedPhotos(new Set(allUrls));
+        // Auto-select only Before/After tagged photos; fall back to all if none tagged
+        const taggedUrls = photos
+          .filter((p: CCPhoto) => p.labels?.some((l) => /before|after/i.test(l.name)))
+          .map((p: CCPhoto) => getPhotoUrl(p))
+          .filter(Boolean);
+        const autoUrls = taggedUrls.length > 0 ? taggedUrls : photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
+        setSelectedPhotos(new Set(autoUrls));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       } else {
@@ -175,9 +185,13 @@ export default function JobDetailPage() {
         setCcPhotos(photos);
         setCcProjects([]);
         setCcMatchedProject(projectName || '');
-        // Auto-select all photos
-        const allUrls = photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
-        setSelectedPhotos(new Set(allUrls));
+        // Auto-select only Before/After tagged photos; fall back to all if none tagged
+        const taggedUrls = photos
+          .filter((p: CCPhoto) => p.labels?.some((l: { name: string }) => /before|after/i.test(l.name)))
+          .map((p: CCPhoto) => getPhotoUrl(p))
+          .filter(Boolean);
+        const autoUrls = taggedUrls.length > 0 ? taggedUrls : photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
+        setSelectedPhotos(new Set(autoUrls));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       }
