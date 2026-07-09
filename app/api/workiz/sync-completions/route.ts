@@ -1,60 +1,41 @@
 import { NextResponse } from 'next/server';
-import { createClient } from 'redis';
-import { Job } from '@/lib/types';
-
-const REDIS_URL = process.env.REDIS_URL || '';
-const JOBS_KEY = 'starbucks:jobs';
-
-const WORKIZ_TOKEN = process.env.WORKIZ_API_TOKEN || '';
-const WORKIZ_SECRET = process.env.WORKIZ_API_SECRET || '';
-const WORKIZ_BASE = 'https://api.workiz.com/api/v1';
-
-async function getJobFromWorkiz(uuid: string): Promise<{ status: string; startTime: string; endTime: string } | null> {
-  const url = `${WORKIZ_BASE}/${WORKIZ_TOKEN}/job/get/${uuid}/?auth_secret=${WORKIZ_SECRET}`;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (!data.flag || !data.data?.length) return null;
-  const job = data.data[0];
-  return {
-    status: job.Status || '',
-    startTime: job.JobDateTime || '',
-    endTime: job.JobEndDateTime || '',
-  };
-}
+import { getJob } from '@/lib/workiz';
+import { getAllJobs, setAllJobs } from '@/lib/db';
 
 export async function GET() {
-  if (!REDIS_URL) {
-    return NextResponse.json({ error: 'REDIS_URL not configured' }, { status: 500 });
-  }
-  if (!WORKIZ_TOKEN || !WORKIZ_SECRET) {
-    return NextResponse.json({ error: 'WORKIZ_API_TOKEN or WORKIZ_API_SECRET not configured' }, { status: 500 });
-  }
-
-  const client = createClient({ url: REDIS_URL });
-  client.on('error', (err) => console.error('Redis error:', err));
-  await client.connect();
-
   try {
-    const raw = await client.get(JOBS_KEY);
-    const jobs: Job[] = raw ? JSON.parse(raw) : [];
+    const jobs = await getAllJobs();
 
     let updatedCount = 0;
-    const results: { id: string; storeNumber: string; workizUuid: string; before: string; after: string; changed: boolean }[] = [];
+    const results: {
+      id: string;
+      storeNumber: string;
+      workizUuid: string;
+      before: string;
+      after: string;
+      changed: boolean;
+    }[] = [];
 
     for (const job of jobs) {
       const uuid = job.workizJobId;
       if (!uuid) continue;
 
-      const workizData = await getJobFromWorkiz(uuid);
-      if (!workizData) continue;
+      let workizStatus = '';
+      try {
+        const workizData = await getJob(uuid);
+        const record = workizData?.data?.[0];
+        workizStatus = record?.Status || '';
+      } catch {
+        // Skip if Workiz call fails for this job
+        continue;
+      }
 
-      const isComplete = workizData.status === 'Done';
-      const newStatus: Job['status'] = isComplete ? 'completed' : job.status === 'completed' ? 'completed' : job.status;
-
+      const isComplete = workizStatus === 'Done';
+      const newStatus = isComplete ? 'completed' : job.status;
       const changed = newStatus !== job.status;
+
       if (changed) {
-        job.status = newStatus;
+        job.status = newStatus as typeof job.status;
         job.updatedAt = new Date().toISOString();
         updatedCount++;
       }
@@ -63,24 +44,25 @@ export async function GET() {
         id: job.id,
         storeNumber: job.storeNumber,
         workizUuid: uuid,
-        before: changed ? (isComplete ? 'in-progress' : job.status) : job.status,
+        before: changed ? job.status : job.status,
         after: newStatus,
         changed,
       });
     }
 
     if (updatedCount > 0) {
-      await client.set(JOBS_KEY, JSON.stringify(jobs));
+      await setAllJobs(jobs);
     }
 
     return NextResponse.json({
       success: true,
       totalJobs: jobs.length,
-      jobsWithWorkizId: results.length,
+      jobsChecked: results.length,
       updatedCount,
       results,
     });
-  } finally {
-    await client.disconnect();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
