@@ -11,31 +11,55 @@ export async function GET() {
       id: string;
       storeNumber: string;
       workizUuid: string;
-      before: string;
-      after: string;
-      changed: boolean;
+      changes: string[];
     }[] = [];
 
     for (const job of jobs) {
       const uuid = job.workizJobId;
       if (!uuid) continue;
 
-      let workizStatus = '';
+      let workizRecord: Record<string, string> | null = null;
       try {
         const workizData = await getJob(uuid);
-        const record = workizData?.data?.[0];
-        workizStatus = record?.Status || '';
+        workizRecord = workizData?.data?.[0] || null;
       } catch {
-        // Skip if Workiz call fails for this job
         continue;
       }
 
+      if (!workizRecord) continue;
+
+      const changes: string[] = [];
+
+      // 1. Sync status
+      const workizStatus = workizRecord.Status || '';
       const isComplete = workizStatus === 'Done';
       const newStatus = isComplete ? 'completed' : job.status;
-      const changed = newStatus !== job.status;
-
-      if (changed) {
+      if (newStatus !== job.status) {
         job.status = newStatus as typeof job.status;
+        changes.push(`status: ${job.status} → ${newStatus}`);
+      }
+
+      // 2. Sync serviceDate from JobDateTime (e.g. "2026-07-10 23:00:00" → "2026-07-10")
+      const jobDateTime = workizRecord.JobDateTime || '';
+      if (jobDateTime) {
+        const workizDate = jobDateTime.split(' ')[0]; // "YYYY-MM-DD"
+        if (workizDate && workizDate !== job.serviceDate) {
+          changes.push(`serviceDate: ${job.serviceDate} → ${workizDate}`);
+          job.serviceDate = workizDate;
+        }
+      }
+
+      // 3. Sync startTime / stopTime
+      const jobEndDateTime = workizRecord.JobEndDateTime || '';
+      if (jobDateTime && job.startTime !== jobDateTime) {
+        job.startTime = jobDateTime;
+        changes.push(`startTime updated`);
+      }
+      if (jobEndDateTime && job.stopTime !== jobEndDateTime) {
+        job.stopTime = jobEndDateTime;
+      }
+
+      if (changes.length > 0) {
         job.updatedAt = new Date().toISOString();
         updatedCount++;
       }
@@ -44,9 +68,7 @@ export async function GET() {
         id: job.id,
         storeNumber: job.storeNumber,
         workizUuid: uuid,
-        before: changed ? job.status : job.status,
-        after: newStatus,
-        changed,
+        changes,
       });
     }
 
