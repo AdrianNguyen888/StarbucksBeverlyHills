@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/workiz/sync-completions",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}
