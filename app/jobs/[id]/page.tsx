@@ -14,7 +14,9 @@ interface CCProject {
 
 interface CCPhotoLabel {
   id: string;
-  name: string;
+  name?: string;           // some CC tags use name
+  display_value?: string;  // CC "Before and After" tags use display_value
+  value?: string;          // lowercase version e.g. "before and after"
 }
 
 interface CCPhoto {
