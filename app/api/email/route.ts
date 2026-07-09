@@ -136,9 +136,15 @@ export async function POST(req: NextRequest) {
       const completionLine = (() => {
         if (!body.serviceDate) return '';
         const date = new Date(body.serviceDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const to12hr = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          const period = h >= 12 ? 'PM' : 'AM';
+          const hour = h % 12 || 12;
+          return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
+        };
         const times = (body.startTime && body.stopTime)
-          ? ` | ${body.startTime} – ${body.stopTime}`
-          : body.startTime ? ` | Start: ${body.startTime}` : '';
+          ? ` | ${to12hr(body.startTime)} – ${to12hr(body.stopTime)}`
+          : body.startTime ? ` | Start: ${to12hr(body.startTime)}` : '';
         return `\n<p><strong>Service Completed:</strong> ${date}${times}</p>`;
       })();
 
