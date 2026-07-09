@@ -473,24 +473,31 @@ export default function JobDetailPage() {
               <p className="text-green-400 text-xs mt-1">Matched: {ccMatchedProject}</p>
             )}
             {ccProjectId && (
-              <div className="mt-1">
-                {galleryUrl ? (
-                  <a
-                    href={galleryUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#00A4C7] text-xs underline"
-                  >
-                    📎 Open Gallery (with timestamps)
-                  </a>
-                ) : (
-                  <button
-                    onClick={fetchGalleryLink}
-                    disabled={fetchingGallery}
-                    className="text-[#00A4C7] text-xs underline disabled:opacity-50"
-                  >
-                    {fetchingGallery ? 'Getting link...' : 'Get Gallery Link'}
-                  </button>
+              <div className="mt-2 space-y-1">
+                <label className="block text-xs text-gray-400">
+                  Gallery Link <span className="text-gray-600">(paste from CompanyCam → Share → Get Link)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={galleryUrl}
+                    onChange={(e) => setGalleryUrl(e.target.value)}
+                    placeholder="https://app.companycam.com/galleries/..."
+                    className="flex-1 bg-[#0a0f1a] border border-[#374151] rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00A4C7]"
+                  />
+                  {galleryUrl && (
+                    <a
+                      href={galleryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#00A4C7] text-xs underline whitespace-nowrap"
+                    >
+                      Open ↗
+                    </a>
+                  )}
+                </div>
+                {galleryUrl && (
+                  <p className="text-green-400 text-xs">✓ Gallery link will be included in photos email</p>
                 )}
               </div>
             )}
