@@ -356,6 +356,9 @@ export default function JobDetailPage() {
           woNumber: job.woNumber || '',
           photoUrls: Array.from(selectedPhotos),
           galleryUrl: galleryUrl || undefined,
+          serviceDate: job.serviceDate || undefined,
+          startTime: job.startTime || undefined,
+          stopTime: job.stopTime || undefined,
         }),
       });
       const data = await res.json();

@@ -34,6 +34,9 @@ interface SendRequest {
   };
   photoUrls?: string[];
   galleryUrl?: string; // CompanyCam public gallery link to include in email body
+  serviceDate?: string;
+  startTime?: string;
+  stopTime?: string;
 }
 
 async function logEmailToJob(jobId: string | undefined, log: EmailLog) {
@@ -130,10 +133,19 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      const completionLine = (() => {
+        if (!body.serviceDate) return '';
+        const date = new Date(body.serviceDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const times = (body.startTime && body.stopTime)
+          ? ` | ${body.startTime} – ${body.stopTime}`
+          : body.startTime ? ` | Start: ${body.startTime}` : '';
+        return `\n<p><strong>Service Completed:</strong> ${date}${times}</p>`;
+      })();
+
       await sendEmail({
         to,
         subject,
-        body: `<p>Attached are the before/after pictures and front door photo for Starbucks #${body.storeNumber} WO# ${body.woNumber}. Let me know if you have any questions. Thanks.</p>${body.galleryUrl ? `\n<p>📸 <a href="${body.galleryUrl}">View full photo gallery</a></p>` : ''}`,
+        body: `<p>Please see attached before/after photos for Starbucks #${body.storeNumber} WO# ${body.woNumber}. Let me know if you have any questions. Thanks.</p>${completionLine}${body.galleryUrl ? `\n<p>📸 <a href="${body.galleryUrl}">View full photo gallery</a></p>` : ''}`,
         attachments,
       });
 
