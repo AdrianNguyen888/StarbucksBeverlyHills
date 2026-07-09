@@ -355,6 +355,7 @@ export default function JobDetailPage() {
           storeNumber: job.storeNumber,
           woNumber: job.woNumber || '',
           photoUrls: Array.from(selectedPhotos),
+          galleryUrl: galleryUrl || undefined,
         }),
       });
       const data = await res.json();

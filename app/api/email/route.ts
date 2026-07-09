@@ -33,6 +33,7 @@ interface SendRequest {
     stopTime: string;
   };
   photoUrls?: string[];
+  galleryUrl?: string; // CompanyCam public gallery link to include in email body
 }
 
 async function logEmailToJob(jobId: string | undefined, log: EmailLog) {
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to,
         subject,
-        body: `<p>Attached are the before/after pictures and front door photo for Starbucks #${body.storeNumber} WO# ${body.woNumber}. Let me know if you have any questions. Thanks.</p>`,
+        body: `<p>Attached are the before/after pictures and front door photo for Starbucks #${body.storeNumber} WO# ${body.woNumber}. Let me know if you have any questions. Thanks.</p>${body.galleryUrl ? `\n<p>📸 <a href="${body.galleryUrl}">View full photo gallery</a></p>` : ''}`,
         attachments,
       });
 

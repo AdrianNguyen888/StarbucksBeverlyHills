@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchProjects, findStarbucksProject, getProjectPhotos, getPhotoLabels, getPhotoTags, createProjectShare } from '@/lib/companycam';
 
+const COMPANYCAM_TOKEN = process.env.COMPANYCAM_API_TOKEN || '';
+
 /**
  * GET /api/companycam?storeNumber=00806&woNumber=1963606 — find exact project + photos + labels
  * GET /api/companycam?query=00806 — generic search
  * GET /api/companycam?projectId=123 — get photos for a specific project
  * GET /api/companycam?photoLabels=photoId — get labels for a single photo
+ * GET /api/companycam?debugShare=projectId — debug: raw CC shares API response
  * POST /api/companycam { projectId } — create/get gallery share link
  */
 export async function GET(req: NextRequest) {
@@ -15,6 +18,34 @@ export async function GET(req: NextRequest) {
     const query = req.nextUrl.searchParams.get('query');
     const projectId = req.nextUrl.searchParams.get('projectId');
     const photoLabels = req.nextUrl.searchParams.get('photoLabels');
+    const debugShare = req.nextUrl.searchParams.get('debugShare');
+
+    // Debug: raw CC shares API response — so we can see exactly what CC returns with real token
+    if (debugShare) {
+      const BASE_URL = 'https://api.companycam.com/v2';
+      const res = await fetch(`${BASE_URL}/projects/${debugShare}/shares`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${COMPANYCAM_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ share_type: 'public' }),
+      });
+      const status = res.status;
+      const contentType = res.headers.get('content-type') || '';
+      const text = await res.text();
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch { /* not JSON */ }
+      return NextResponse.json({
+        debug: true,
+        status,
+        contentType,
+        body: parsed || text.slice(0, 500),
+        tokenPresent: !!COMPANYCAM_TOKEN,
+        tokenLength: COMPANYCAM_TOKEN.length,
+      });
+    }
 
     // Fetch labels for a single photo
     if (photoLabels) {
