@@ -116,23 +116,49 @@ export async function findStarbucksProject(
 }
 
 /**
- * Get all photos for a project, with labels sideloaded.
- * CompanyCam v2 supports include[]=labels to get Before/After labels in one call.
+ * Get all photos for a project.
+ * Labels are fetched separately per-photo via getPhotoLabels().
  */
 export async function getProjectPhotos(projectId: string, perPage = 50): Promise<CCPhoto[]> {
-  const photos = await ccFetch(`/projects/${projectId}/photos?per_page=${perPage}&include[]=labels`) as CCPhoto[];
+  const photos = await ccFetch(`/projects/${projectId}/photos?per_page=${perPage}`) as CCPhoto[];
   return photos;
 }
 
 /**
- * Fetch labels for a single photo (fallback if sideload not available)
+ * Fetch labels for a single photo (Before/After tags set in CompanyCam app)
  */
 export async function getPhotoLabels(photoId: string): Promise<CCPhotoLabel[]> {
   try {
-    return await ccFetch(`/photos/${photoId}/labels`) as CCPhotoLabel[];
+    const result = await ccFetch(`/photos/${photoId}/labels`) as CCPhotoLabel[] | { data?: CCPhotoLabel[] };
+    // API may return array directly or wrapped in { data: [] }
+    return Array.isArray(result) ? result : (result.data || []);
   } catch {
     return [];
   }
+}
+
+/**
+ * Create (or retrieve) a public share link for a CompanyCam project gallery.
+ * Returns the public URL including timestamps.
+ * POST /projects/{id}/shares
+ */
+export async function createProjectShare(projectId: string): Promise<string> {
+  const BASE_URL = 'https://api.companycam.com/v2';
+  const COMPANYCAM_TOKEN = process.env.COMPANYCAM_API_TOKEN || '';
+  const res = await fetch(`${BASE_URL}/projects/${projectId}/shares`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${COMPANYCAM_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ share_type: 'public' }),
+  });
+  if (!res.ok) {
+    // Fall back to the direct project URL (requires CC login but functional internally)
+    return `https://app.companycam.com/projects/${projectId}`;
+  }
+  const data = await res.json() as { url?: string; share_url?: string };
+  return data.url || data.share_url || `https://app.companycam.com/projects/${projectId}`;
 }
 
 /**

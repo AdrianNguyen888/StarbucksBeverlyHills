@@ -43,6 +43,9 @@ export default function JobDetailPage() {
   const [ccSearching, setCcSearching] = useState(false);
   const [ccLoadingPhotos, setCcLoadingPhotos] = useState(false);
   const [ccError, setCcError] = useState('');
+  const [ccProjectId, setCcProjectId] = useState<string>('');
+  const [galleryUrl, setGalleryUrl] = useState<string>('');
+  const [fetchingGallery, setFetchingGallery] = useState(false);
 
   // Email state
   const [emailConfigured, setEmailConfigured] = useState(false);
@@ -148,15 +151,16 @@ export default function JobDetailPage() {
       if (data.matched && data.project) {
         // Exact match found — photos already loaded
         setCcMatchedProject(data.project.name);
+        setCcProjectId(data.project.id);
+        setGalleryUrl('');
         const photos = data.photos || [];
         setCcPhotos(photos);
-        // Auto-select only Before/After tagged photos; fall back to all if none tagged
+        // Auto-select only Before/After tagged photos; fall back to none if no labels found
         const taggedUrls = photos
           .filter((p: CCPhoto) => p.labels?.some((l) => /before|after/i.test(l.name)))
           .map((p: CCPhoto) => getPhotoUrl(p))
           .filter(Boolean);
-        const autoUrls = taggedUrls.length > 0 ? taggedUrls : photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
-        setSelectedPhotos(new Set(autoUrls));
+        setSelectedPhotos(new Set(taggedUrls));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       } else {
@@ -185,13 +189,14 @@ export default function JobDetailPage() {
         setCcPhotos(photos);
         setCcProjects([]);
         setCcMatchedProject(projectName || '');
-        // Auto-select only Before/After tagged photos; fall back to all if none tagged
+        setCcProjectId(projectId);
+        setGalleryUrl('');
+        // Auto-select only Before/After tagged photos; no fallback to all
         const taggedUrls = photos
           .filter((p: CCPhoto) => p.labels?.some((l: { name: string }) => /before|after/i.test(l.name)))
           .map((p: CCPhoto) => getPhotoUrl(p))
           .filter(Boolean);
-        const autoUrls = taggedUrls.length > 0 ? taggedUrls : photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
-        setSelectedPhotos(new Set(autoUrls));
+        setSelectedPhotos(new Set(taggedUrls));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       }
@@ -199,6 +204,25 @@ export default function JobDetailPage() {
       setCcError('Failed to load photos.');
     }
     setCcLoadingPhotos(false);
+  }
+
+  async function fetchGalleryLink() {
+    if (!ccProjectId) return;
+    setFetchingGallery(true);
+    try {
+      const res = await fetch('/api/companycam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: ccProjectId }),
+      });
+      const data = await res.json();
+      if (data.success && data.shareUrl) {
+        setGalleryUrl(data.shareUrl);
+      }
+    } catch {
+      // silently fail — link just won't show
+    }
+    setFetchingGallery(false);
   }
 
   function getPhotoUrl(photo: CCPhoto): string {
@@ -444,6 +468,28 @@ export default function JobDetailPage() {
             <h2 className="text-lg font-semibold text-white">CompanyCam Photos</h2>
             {ccMatchedProject && (
               <p className="text-green-400 text-xs mt-1">Matched: {ccMatchedProject}</p>
+            )}
+            {ccProjectId && (
+              <div className="mt-1">
+                {galleryUrl ? (
+                  <a
+                    href={galleryUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#00A4C7] text-xs underline"
+                  >
+                    📎 Open Gallery (with timestamps)
+                  </a>
+                ) : (
+                  <button
+                    onClick={fetchGalleryLink}
+                    disabled={fetchingGallery}
+                    className="text-[#00A4C7] text-xs underline disabled:opacity-50"
+                  >
+                    {fetchingGallery ? 'Getting link...' : 'Get Gallery Link'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
           <button
