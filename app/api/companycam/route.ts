@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchProjects, findStarbucksProject, getProjectPhotos, getPhotoLabels, createProjectShare } from '@/lib/companycam';
+import { searchProjects, findStarbucksProject, getProjectPhotos, getPhotoLabels, getPhotoTags, createProjectShare } from '@/lib/companycam';
 
 /**
  * GET /api/companycam?storeNumber=00806&woNumber=1963606 — find exact project + photos + labels
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       // Fetch labels for all photos in parallel (batch)
       const photosWithLabels = await Promise.all(
         photos.map(async (photo) => {
-          const labels = await getPhotoLabels(photo.id);
+          const labels = await getPhotoTags(photo.id);
           return { ...photo, labels };
         })
       );
@@ -55,11 +55,11 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Found exact match — auto-load photos with labels
+      // Found exact match — auto-load photos with tags
       const photos = await getProjectPhotos(project.id);
       const photosWithLabels = await Promise.all(
         photos.map(async (photo) => {
-          const labels = await getPhotoLabels(photo.id);
+          const labels = await getPhotoTags(photo.id);
           return { ...photo, labels };
         })
       );

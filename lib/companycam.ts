@@ -125,16 +125,25 @@ export async function getProjectPhotos(projectId: string, perPage = 50): Promise
 }
 
 /**
- * Fetch labels for a single photo (Before/After tags set in CompanyCam app)
+ * Fetch tags for a single photo.
+ * CompanyCam's "Before and After" feature stores tags via GET /photos/{id}/tags.
+ * Tag objects have a { name: string } — filter for /before|after/i to detect BA-tagged photos.
  */
-export async function getPhotoLabels(photoId: string): Promise<CCPhotoLabel[]> {
+export async function getPhotoTags(photoId: string): Promise<CCPhotoLabel[]> {
   try {
-    const result = await ccFetch(`/photos/${photoId}/labels`) as CCPhotoLabel[] | { data?: CCPhotoLabel[] };
-    // API may return array directly or wrapped in { data: [] }
+    const result = await ccFetch(`/photos/${photoId}/tags`) as CCPhotoLabel[] | { data?: CCPhotoLabel[] };
     return Array.isArray(result) ? result : (result.data || []);
   } catch {
     return [];
   }
+}
+
+/**
+ * Fetch labels for a single photo (text labels — separate from Before/After tags)
+ * @deprecated Use getPhotoTags() for Before/After detection
+ */
+export async function getPhotoLabels(photoId: string): Promise<CCPhotoLabel[]> {
+  return getPhotoTags(photoId);
 }
 
 /**
@@ -143,8 +152,6 @@ export async function getPhotoLabels(photoId: string): Promise<CCPhotoLabel[]> {
  * POST /projects/{id}/shares
  */
 export async function createProjectShare(projectId: string): Promise<string> {
-  const BASE_URL = 'https://api.companycam.com/v2';
-  const COMPANYCAM_TOKEN = process.env.COMPANYCAM_API_TOKEN || '';
   const res = await fetch(`${BASE_URL}/projects/${projectId}/shares`, {
     method: 'POST',
     headers: {
@@ -154,7 +161,6 @@ export async function createProjectShare(projectId: string): Promise<string> {
     body: JSON.stringify({ share_type: 'public' }),
   });
   if (!res.ok) {
-    // Fall back to the direct project URL (requires CC login but functional internally)
     return `https://app.companycam.com/projects/${projectId}`;
   }
   const data = await res.json() as { url?: string; share_url?: string };
