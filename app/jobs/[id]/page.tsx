@@ -157,7 +157,7 @@ export default function JobDetailPage() {
         setCcPhotos(photos);
         // Auto-select only Before/After tagged photos; fall back to none if no labels found
         const taggedUrls = photos
-          .filter((p: CCPhoto) => p.labels?.some((l) => /before|after/i.test(l.name)))
+          .filter((p: CCPhoto) => p.labels?.some((l) => /before|after/i.test(l.name || l.display_value || l.value || '')))
           .map((p: CCPhoto) => getPhotoUrl(p))
           .filter(Boolean);
         setSelectedPhotos(new Set(taggedUrls));
@@ -193,7 +193,7 @@ export default function JobDetailPage() {
         setGalleryUrl('');
         // Auto-select only Before/After tagged photos; no fallback to all
         const taggedUrls = photos
-          .filter((p: CCPhoto) => p.labels?.some((l: { name: string }) => /before|after/i.test(l.name)))
+          .filter((p: CCPhoto) => p.labels?.some((l: { name?: string; display_value?: string; value?: string }) => /before|after/i.test(l.name || l.display_value || l.value || '')))
           .map((p: CCPhoto) => getPhotoUrl(p))
           .filter(Boolean);
         setSelectedPhotos(new Set(taggedUrls));

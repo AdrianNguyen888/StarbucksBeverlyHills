@@ -29,7 +29,10 @@ export interface CCProject {
 
 export interface CCPhotoLabel {
   id: string;
-  name: string; // e.g. "Before", "After"
+  name?: string;           // legacy field (not always present)
+  display_value?: string;  // e.g. "Before and After"
+  value?: string;          // e.g. "before and after"
+  tag_type?: string;       // e.g. "media"
 }
 
 export interface CCPhoto {
@@ -152,19 +155,32 @@ export async function getPhotoLabels(photoId: string): Promise<CCPhotoLabel[]> {
  * POST /projects/{id}/shares
  */
 export async function createProjectShare(projectId: string): Promise<string> {
-  const res = await fetch(`${BASE_URL}/projects/${projectId}/shares`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${COMPANYCAM_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ share_type: 'public' }),
-  });
-  if (!res.ok) {
+  try {
+    const res = await fetch(`${BASE_URL}/projects/${projectId}/shares`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${COMPANYCAM_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ share_type: 'public' }),
+    });
+    if (!res.ok) {
+      console.error(`createProjectShare failed: HTTP ${res.status}`);
+      return `https://app.companycam.com/projects/${projectId}`;
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      // Non-JSON response (HTML error page) — return fallback
+      console.error(`createProjectShare: unexpected content-type: ${contentType}`);
+      return `https://app.companycam.com/projects/${projectId}`;
+    }
+    const data = await res.json() as { url?: string; share_url?: string; links?: { html?: string } };
+    return data.url || data.share_url || data.links?.html || `https://app.companycam.com/projects/${projectId}`;
+  } catch (err) {
+    console.error('createProjectShare error:', err);
     return `https://app.companycam.com/projects/${projectId}`;
   }
-  const data = await res.json() as { url?: string; share_url?: string };
-  return data.url || data.share_url || `https://app.companycam.com/projects/${projectId}`;
 }
 
 /**
