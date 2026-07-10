@@ -169,7 +169,7 @@ export default function SchedulePage() {
           ))}
 
           {dates.map((date) => {
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
             const dayJobs = jobs.filter((j) => j.serviceDate === dateStr);
             const isToday = dateStr === new Date().toISOString().split('T')[0];
 
@@ -212,11 +212,11 @@ export default function SchedulePage() {
                       {job.status === 'completed' && (
                         <button
                           onClick={(e) => toggleInvoiceSent(job.id, e)}
-                          title={job.invoiceSent ? 'Invoice sent' : 'Mark invoice sent'}
-                          className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold leading-none transition-colors ${
+                          title={job.invoiceSent ? 'Invoice sent — click to unmark' : 'Mark invoice sent'}
+                          className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold leading-none transition-all group ${
                             job.invoiceSent
                               ? 'bg-white text-green-700'
-                              : 'bg-transparent border border-white/30 text-white/30 hover:border-white/70 hover:text-white/70'
+                              : 'bg-transparent text-transparent hover:bg-white/20 hover:text-white'
                           }`}
                         >
                           ✓
