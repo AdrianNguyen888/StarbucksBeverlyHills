@@ -12,6 +12,7 @@ export interface Job {
   storeNumber: string;
   woNumber?: string;
   invoiceNumber?: string;
+  invoiceSent?: boolean;
   address: string;
   city: string;
   state: string;
