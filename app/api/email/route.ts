@@ -112,6 +112,11 @@ export async function POST(req: NextRequest) {
         test: !!body.test,
       });
 
+      // Auto-mark invoice as sent (only on real sends, not test)
+      if (!body.test && body.jobId) {
+        await updateJob(body.jobId, { invoiceSent: true } as Record<string, unknown>);
+      }
+
       return NextResponse.json({ success: true, message: 'Documents email sent' });
 
     } else if (body.type === 'photos') {
