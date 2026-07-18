@@ -65,9 +65,30 @@ export default function JobDetailPage() {
         if (!r.ok) throw new Error('Not found');
         return r.json();
       })
-      .then(setJob)
-      .catch(() => setJob(null))
-      .finally(() => setLoading(false));
+      .then((loadedJob: Job) => {
+        setJob(loadedJob);
+        setLoading(false);
+
+        // Auto-sync woNumber from Workiz LastName if missing and we have a workizJobId
+        if (!loadedJob.woNumber && loadedJob.workizJobId) {
+          fetch(`/api/workiz/jobs/${loadedJob.workizJobId}`)
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.woNumber) {
+                fetch(`/api/jobs/${id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ woNumber: d.woNumber }),
+                })
+                  .then((r) => r.json())
+                  .then((updated) => setJob(updated))
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => { setJob(null); setLoading(false); });
 
     fetch('/api/email')
       .then((r) => r.json())
