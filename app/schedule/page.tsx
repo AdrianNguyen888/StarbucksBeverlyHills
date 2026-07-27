@@ -75,6 +75,26 @@ export default function SchedulePage() {
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
+              const unassigned = jobs.filter((j) => !j.assignedTech);
+              if (unassigned.length === 0) { alert('No unassigned jobs to delete.'); return; }
+              if (!confirm(`Delete ${unassigned.length} unassigned (red) job(s)? This cannot be undone.`)) return;
+              let ok = 0;
+              for (const job of unassigned) {
+                try {
+                  const res = await fetch(`/api/jobs/${job.id}`, { method: 'DELETE' });
+                  if (res.ok) ok++;
+                } catch {}
+              }
+              alert(`Deleted ${ok} job(s).`);
+              const r = await fetch('/api/jobs'); const d = await r.json();
+              if (Array.isArray(d)) setJobs(d);
+            }}
+            className="px-3 py-1 rounded text-sm bg-red-900/40 text-red-300 hover:bg-red-900/60 border border-red-800"
+          >
+            Delete Unassigned
+          </button>
+          <button
+            onClick={async () => {
               const unpushed = jobs.filter((j) => !j.workizJobId);
               if (unpushed.length === 0) { alert('All jobs already pushed to Workiz.'); return; }
               if (!confirm(`Push ${unpushed.length} job(s) to Workiz?`)) return;
