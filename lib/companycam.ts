@@ -58,30 +58,49 @@ export async function searchProjects(query: string): Promise<CCProject[]> {
 }
 
 /**
+ * WO number format-agnostic comparison.
+ *
+ * Handles both formats GoSuperClean has used:
+ *   Old: "WO2024897"  — "WO" prefix + 7-digit number
+ *   New: "2025530-01" — bare number + dash + revision suffix (no "WO" prefix)
+ *
+ * Extracts the base number from both sides and compares:
+ *   "WO2024897"  → base "2024897"
+ *   "2025530-01" → base "2025530"
+ *   "2025530"    → base "2025530"
+ *
+ * Returns true if any token in the project name shares a base number with jobWoNumber.
+ */
+function woMatches(projectName: string, jobWoNumber: string): boolean {
+  const extractBase = (s: string) => s.replace(/^WO/i, '').split('-')[0];
+  const jobBase = extractBase(jobWoNumber);
+  if (!jobBase || jobBase.length < 5) return false;
+  // Tokenise on whitespace and common separators
+  const tokens = projectName.split(/[\s#\-_/]+/);
+  return tokens.some(t => extractBase(t) === jobBase);
+}
+
+/**
  * Find the exact CompanyCam project for a Starbucks store.
- * Projects are named like: "Starbucks #00806 WO# 1963606"
+ *
+ * Project naming conventions observed:
+ *   Old: "Workiz 1942 - Starbucks #78762 WO2024897"
+ *   New: "Workiz 1943 - Starbucks #67488 2025530-01"  (no "WO" prefix)
  *
  * Strategy:
- * 1. Search with full name "Starbucks #XXXXX WO# YYYYYYY" (exact match)
- * 2. If no match, search "Starbucks #XXXXX" (store only)
- * 3. Filter results to verify the store number is actually in the project name
+ * 1. Search "Starbucks #XXXXX" (store number — works for both naming conventions)
+ * 2. Among results filter by store number in name
+ * 3. If WO number supplied, prefer the project whose name contains a token matching
+ *    the WO base number (format-agnostic via woMatches)
+ * 4. Fallback to most-recently-updated store match
+ * 5. Final fallback: address search
  */
 export async function findStarbucksProject(
   storeNumber: string,
   woNumber?: string,
   address?: string
 ): Promise<CCProject | null> {
-  // Try exact search first: "Starbucks #00806 WO# 1963606"
-  if (woNumber) {
-    const exactQuery = `Starbucks #${storeNumber} WO# ${woNumber}`;
-    const exactResults = await searchProjects(exactQuery);
-    const exactMatch = exactResults.find((p) =>
-      p.name.includes(`#${storeNumber}`) && p.name.includes(woNumber)
-    );
-    if (exactMatch) return exactMatch;
-  }
-
-  // Fallback: search by store number only
+  // Search by store number — works regardless of WO format in project name
   const storeQuery = `Starbucks #${storeNumber}`;
   const storeResults = await searchProjects(storeQuery);
 
@@ -91,9 +110,10 @@ export async function findStarbucksProject(
   );
 
   if (matches.length > 0) {
-    // If WO number provided, prefer a match that contains it
     if (woNumber) {
-      const woMatch = matches.find((p) => p.name.includes(woNumber));
+      // Prefer the project whose name contains a token matching the WO base number
+      // (handles both "WO2024897" old format and "2025530-01" new format)
+      const woMatch = matches.find((p) => woMatches(p.name, woNumber));
       if (woMatch) return woMatch;
     }
     // Return most recently updated match
@@ -105,12 +125,10 @@ export async function findStarbucksProject(
   if (address) {
     const addrResults = await searchProjects(address);
     if (addrResults.length > 0) {
-      // Prefer results that mention the store number or "Starbucks"
       const starbucksMatch = addrResults.find((p) =>
         p.name.toLowerCase().includes('starbucks') || p.name.includes(storeNumber)
       );
       if (starbucksMatch) return starbucksMatch;
-      // Otherwise return the first result (likely matched by address)
       return addrResults[0];
     }
   }
