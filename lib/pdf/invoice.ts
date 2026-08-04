@@ -95,9 +95,19 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
   doc.text('Service Location:', margin + colWidth, y);
   y += 18;
 
-  const locationLines = [
-    `Starbucks #${data.storeNumber} - WO ${data.woNumber}`,
-    'Go Super Clean',
+  // LEFT column: GoSuperClean billing info (hardcoded)
+  const billToLines = [
+    'Superclean Service Company, Inc.',
+    'Contact: Super Clean',
+    '12024 Forestgate Dr',
+    'Dallas, Texas 75243',
+    'documents@gosuperclean.com',
+  ];
+
+  // RIGHT column: store address (from data)
+  const serviceLocationLines = [
+    `Starbucks #${data.storeNumber} WO# ${data.woNumber}`,
+    'Contact: documents@gosuperclean.com',
     data.address,
     `${data.city}, ${data.state} ${data.zip}`,
   ];
@@ -106,9 +116,10 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
   doc.setFontSize(9);
   doc.setTextColor('#555555');
 
-  for (const line of locationLines) {
-    doc.text(line, margin, y);
-    doc.text(line, margin + colWidth, y);
+  const maxLines = Math.max(billToLines.length, serviceLocationLines.length);
+  for (let i = 0; i < maxLines; i++) {
+    if (billToLines[i]) doc.text(billToLines[i], margin, y);
+    if (serviceLocationLines[i]) doc.text(serviceLocationLines[i], margin + colWidth, y);
     y += 14;
   }
 

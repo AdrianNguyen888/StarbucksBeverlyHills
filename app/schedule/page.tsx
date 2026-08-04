@@ -42,6 +42,21 @@ export default function SchedulePage() {
     });
   }
 
+
+  async function toggleInvoiceSent(jobId: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const newVal = !job.invoiceSent;
+    await fetch(`/api/jobs/${jobId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoiceSent: newVal }),
+    });
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, invoiceSent: newVal } : j));
+  }
+
   async function bulkAssign() {
     if (!bulkTech || selectedJobs.size === 0) return;
     const updated = jobs.map((j) =>
@@ -197,7 +212,7 @@ export default function SchedulePage() {
           ))}
 
           {dates.map((date) => {
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
             const dayJobs = jobs.filter((j) => j.serviceDate === dateStr);
             const isToday = dateStr === new Date().toISOString().split('T')[0];
 
@@ -229,13 +244,28 @@ export default function SchedulePage() {
                       }
                     }}
                   >
-                    <Link href={`/jobs/${job.id}`} className="block">
-                      <div className="font-mono">#{job.storeNumber}</div>
-                      <div className="text-[10px] opacity-70 truncate">{job.city}</div>
-                      {job.assignedTech && (
-                        <div className="text-[10px] opacity-50 truncate">{job.assignedTech.split(' ')[0]}</div>
+                    <div className="flex items-start justify-between gap-1">
+                      <Link href={`/jobs/${job.id}`} className="block flex-1 min-w-0">
+                        <div className="font-mono">#{job.storeNumber}</div>
+                        <div className="text-[10px] opacity-70 truncate">{job.city}</div>
+                        {job.assignedTech && (
+                          <div className="text-[10px] opacity-50 truncate">{job.assignedTech.split(' ')[0]}</div>
+                        )}
+                      </Link>
+                      {job.status === 'completed' && (
+                        <button
+                          onClick={(e) => toggleInvoiceSent(job.id, e)}
+                          title={job.invoiceSent ? 'Invoice sent — click to unmark' : 'Mark invoice sent'}
+                          className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold leading-none transition-all group ${
+                            job.invoiceSent
+                              ? 'bg-white text-green-700'
+                              : 'bg-transparent text-transparent hover:bg-white/20 hover:text-white'
+                          }`}
+                        >
+                          ✓
+                        </button>
                       )}
-                    </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -249,6 +279,7 @@ export default function SchedulePage() {
         <span><span className="inline-block w-3 h-3 rounded bg-blue-900/30 mr-1"></span>Assigned</span>
         <span><span className="inline-block w-3 h-3 rounded bg-green-900/30 mr-1"></span>Completed</span>
         <span className="text-gray-600">Shift+Click to select multiple for bulk assign</span>
+        <span><span className="inline-block w-3 h-3 rounded-full bg-white mr-1"></span>Invoice sent</span>
       </div>
     </div>
   );

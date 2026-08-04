@@ -12,6 +12,13 @@ interface CCProject {
   name: string;
 }
 
+interface CCPhotoLabel {
+  id: string;
+  name?: string;           // some CC tags use name
+  display_value?: string;  // CC "Before and After" tags use display_value
+  value?: string;          // lowercase version e.g. "before and after"
+}
+
 interface CCPhoto {
   id: string;
   urls?: { original?: string; thumbnail?: string };
@@ -20,6 +27,7 @@ interface CCPhoto {
   photo_url?: string;
   captured_at?: number;
   created_at?: number;
+  labels?: CCPhotoLabel[];
 }
 
 export default function JobDetailPage() {
@@ -37,6 +45,9 @@ export default function JobDetailPage() {
   const [ccSearching, setCcSearching] = useState(false);
   const [ccLoadingPhotos, setCcLoadingPhotos] = useState(false);
   const [ccError, setCcError] = useState('');
+  const [ccProjectId, setCcProjectId] = useState<string>('');
+  const [galleryUrl, setGalleryUrl] = useState<string>('');
+  const [fetchingGallery, setFetchingGallery] = useState(false);
 
   // Email state
   const [emailConfigured, setEmailConfigured] = useState(false);
@@ -54,9 +65,30 @@ export default function JobDetailPage() {
         if (!r.ok) throw new Error('Not found');
         return r.json();
       })
-      .then(setJob)
-      .catch(() => setJob(null))
-      .finally(() => setLoading(false));
+      .then((loadedJob: Job) => {
+        setJob(loadedJob);
+        setLoading(false);
+
+        // Auto-sync woNumber from Workiz LastName if missing and we have a workizJobId
+        if (!loadedJob.woNumber && loadedJob.workizJobId) {
+          fetch(`/api/workiz/jobs/${loadedJob.workizJobId}`)
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.woNumber) {
+                fetch(`/api/jobs/${id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ woNumber: d.woNumber }),
+                })
+                  .then((r) => r.json())
+                  .then((updated) => setJob(updated))
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => { setJob(null); setLoading(false); });
 
     fetch('/api/email')
       .then((r) => r.json())
@@ -96,14 +128,20 @@ export default function JobDetailPage() {
         inv.save(`Invoice_${job.storeNumber}.pdf`);
       }
       if (type === 'work-order' || type === 'both') {
-        const wo = generateWorkOrderPDF({
+        const woBytes = await generateWorkOrderPDF({
           storeNumber: job.storeNumber, woNumber: job.woNumber || '',
           address: job.address, city: job.city, state: job.state,
           zip: job.zip || '', storePhone: job.storePhone || '',
           serviceDate: job.serviceDate, technician: job.assignedTech || '',
           startTime: job.startTime || '', stopTime: job.stopTime || '',
         });
-        wo.save(`WO_${job.storeNumber}.pdf`);
+        const blob = new Blob([woBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `WO_${job.storeNumber}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
     } catch (err) {
       console.error(err);
@@ -142,11 +180,16 @@ export default function JobDetailPage() {
       if (data.matched && data.project) {
         // Exact match found — photos already loaded
         setCcMatchedProject(data.project.name);
+        setCcProjectId(data.project.id);
+        setGalleryUrl('');
         const photos = data.photos || [];
         setCcPhotos(photos);
-        // Auto-select all photos (typically exactly 5)
-        const allUrls = photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
-        setSelectedPhotos(new Set(allUrls));
+        // Auto-select only Before/After tagged photos; fall back to none if no labels found
+        const taggedUrls = photos
+          .filter((p: CCPhoto) => p.labels?.some((l) => /before|after/i.test(l.name || l.display_value || l.value || '')))
+          .map((p: CCPhoto) => getPhotoUrl(p))
+          .filter(Boolean);
+        setSelectedPhotos(new Set(taggedUrls));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       } else {
@@ -175,9 +218,14 @@ export default function JobDetailPage() {
         setCcPhotos(photos);
         setCcProjects([]);
         setCcMatchedProject(projectName || '');
-        // Auto-select all photos
-        const allUrls = photos.map((p: CCPhoto) => getPhotoUrl(p)).filter(Boolean);
-        setSelectedPhotos(new Set(allUrls));
+        setCcProjectId(projectId);
+        setGalleryUrl('');
+        // Auto-select only Before/After tagged photos; no fallback to all
+        const taggedUrls = photos
+          .filter((p: CCPhoto) => p.labels?.some((l: { name?: string; display_value?: string; value?: string }) => /before|after/i.test(l.name || l.display_value || l.value || '')))
+          .map((p: CCPhoto) => getPhotoUrl(p))
+          .filter(Boolean);
+        setSelectedPhotos(new Set(taggedUrls));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       }
@@ -185,6 +233,25 @@ export default function JobDetailPage() {
       setCcError('Failed to load photos.');
     }
     setCcLoadingPhotos(false);
+  }
+
+  async function fetchGalleryLink() {
+    if (!ccProjectId) return;
+    setFetchingGallery(true);
+    try {
+      const res = await fetch('/api/companycam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: ccProjectId }),
+      });
+      const data = await res.json();
+      if (data.success && data.shareUrl) {
+        setGalleryUrl(data.shareUrl);
+      }
+    } catch {
+      // silently fail — link just won't show
+    }
+    setFetchingGallery(false);
   }
 
   function getPhotoUrl(photo: CCPhoto): string {
@@ -315,6 +382,10 @@ export default function JobDetailPage() {
           storeNumber: job.storeNumber,
           woNumber: job.woNumber || '',
           photoUrls: Array.from(selectedPhotos),
+          galleryUrl: galleryUrl || undefined,
+          serviceDate: job.serviceDate || undefined,
+          startTime: job.startTime || undefined,
+          stopTime: job.stopTime || undefined,
         }),
       });
       const data = await res.json();
@@ -431,6 +502,35 @@ export default function JobDetailPage() {
             {ccMatchedProject && (
               <p className="text-green-400 text-xs mt-1">Matched: {ccMatchedProject}</p>
             )}
+            {ccProjectId && (
+              <div className="mt-2 space-y-1">
+                <label className="block text-xs text-gray-400">
+                  Gallery Link <span className="text-gray-600">(paste from CompanyCam → Share → Get Link)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={galleryUrl}
+                    onChange={(e) => setGalleryUrl(e.target.value)}
+                    placeholder="https://app.companycam.com/galleries/..."
+                    className="flex-1 bg-[#0a0f1a] border border-[#374151] rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#00A4C7]"
+                  />
+                  {galleryUrl && (
+                    <a
+                      href={galleryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#00A4C7] text-xs underline whitespace-nowrap"
+                    >
+                      Open ↗
+                    </a>
+                  )}
+                </div>
+                {galleryUrl && (
+                  <p className="text-green-400 text-xs">✓ Gallery link will be included in photos email</p>
+                )}
+              </div>
+            )}
           </div>
           <button
             onClick={searchCompanyCam}
@@ -442,9 +542,12 @@ export default function JobDetailPage() {
         </div>
 
         {!ccSearching && ccPhotos.length === 0 && ccProjects.length === 0 && !ccError && (
-          <p className="text-gray-500 text-sm mb-3">
-            Click &quot;Find Photos&quot; to search for project &quot;Starbucks #{job.storeNumber}{job.woNumber ? ` WO# ${job.woNumber}` : ''}&quot;
-          </p>
+          <div className="text-sm mb-3 space-y-1">
+            <p className="text-gray-500">
+              Click &quot;Find Photos&quot; to search for project &quot;Starbucks #{job.storeNumber}{job.woNumber ? ` WO# ${job.woNumber}` : ''}&quot;
+            </p>
+            <p className="text-yellow-500/80 text-xs">⚠️ New requirements (June 2026): 12+ photos required — before &amp; after for 6 areas + 1 storefront overview. Submit within 24 business hours.</p>
+          </div>
         )}
 
         {ccError && <p className="text-yellow-400 text-sm mb-3">{ccError}</p>}
@@ -474,10 +577,12 @@ export default function JobDetailPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="text-gray-400 text-sm">
-                {ccPhotos.length} photo(s) — {selectedPhotos.size} selected
-                {selectedPhotos.size === ccPhotos.length && ccPhotos.length > 0 && (
-                  <span className="text-green-400 ml-1">(all selected)</span>
-                )}
+                {ccPhotos.length} photo(s) found — {selectedPhotos.size} selected
+                {selectedPhotos.size >= 12 ? (
+                  <span className="text-green-400 ml-1">✓ meets 12-photo minimum</span>
+                ) : selectedPhotos.size > 0 ? (
+                  <span className="text-yellow-400 ml-1">⚠️ need {12 - selectedPhotos.size} more (12 min required)</span>
+                ) : null}
               </p>
               <button
                 onClick={() => {
@@ -578,6 +683,9 @@ export default function JobDetailPage() {
                 </p>
                 <p className="text-gray-500 text-xs">To: starbucks@gosuperclean.com</p>
                 <p className="text-gray-500 text-xs">Attachments: {selectedPhotos.size} photo(s) from CompanyCam</p>
+                {selectedPhotos.size > 0 && selectedPhotos.size < 12 && (
+                  <p className="text-yellow-400 text-xs mt-1">⚠️ GoSuperClean requires 12+ photos — you have {selectedPhotos.size}</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -670,7 +778,7 @@ export default function JobDetailPage() {
                       Email: 'starbucks@gosuperclean.com',
                       JobNotes: `Pressure Wash Patio/Sidewalk/Drive Thru - Starbucks #${job.storeNumber}`,
                       JobDateTime: job.serviceDate + ' 22:00',
-                      JobType: 'starbucks',
+                      JobType: 'starbucks_cleaning',
                     }),
                   });
                   const data = await res.json();
