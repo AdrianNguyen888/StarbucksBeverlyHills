@@ -128,14 +128,20 @@ export default function JobDetailPage() {
         inv.save(`Invoice_${job.storeNumber}.pdf`);
       }
       if (type === 'work-order' || type === 'both') {
-        const wo = generateWorkOrderPDF({
+        const woBytes = await generateWorkOrderPDF({
           storeNumber: job.storeNumber, woNumber: job.woNumber || '',
           address: job.address, city: job.city, state: job.state,
           zip: job.zip || '', storePhone: job.storePhone || '',
           serviceDate: job.serviceDate, technician: job.assignedTech || '',
           startTime: job.startTime || '', stopTime: job.stopTime || '',
         });
-        wo.save(`WO_${job.storeNumber}.pdf`);
+        const blob = new Blob([woBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `WO_${job.storeNumber}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
     } catch (err) {
       console.error(err);
