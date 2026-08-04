@@ -135,7 +135,7 @@ export default function JobDetailPage() {
           serviceDate: job.serviceDate, technician: job.assignedTech || '',
           startTime: job.startTime || '', stopTime: job.stopTime || '',
         });
-        const blob = new Blob([woBytes], { type: 'application/pdf' });
+        const blob = new Blob([woBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

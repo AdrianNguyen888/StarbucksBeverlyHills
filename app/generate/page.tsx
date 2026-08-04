@@ -72,7 +72,7 @@ export default function GeneratePage() {
           }
         } else {
           const { generateWorkOrderPDF } = await import('@/lib/pdf/work-order');
-          const doc = generateWorkOrderPDF({
+          const bytes = await generateWorkOrderPDF({
             storeNumber: form.storeNumber,
             woNumber: form.woNumber,
             address: form.address,
@@ -84,12 +84,12 @@ export default function GeneratePage() {
             stopTime: form.stopTime,
           });
           if (!cancelled) {
-            const blob = doc.output('blob');
+            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
             setPreviewUrl(URL.createObjectURL(blob));
           }
         }
-      } catch (err) {
-        console.error('Preview failed:', err);
+      } catch {
+        // Preview generation can fail if the browser cannot fetch the WO template.
       }
     })();
 
@@ -115,7 +115,7 @@ export default function GeneratePage() {
       });
       inv.save(`Invoice_${form.storeNumber}_${form.invoiceNumber || 'draft'}.pdf`);
 
-      const wo = generateWorkOrderPDF({
+      const woBytes = await generateWorkOrderPDF({
         storeNumber: form.storeNumber,
         woNumber: form.woNumber,
         address: form.address,
@@ -126,7 +126,13 @@ export default function GeneratePage() {
         startTime: form.startTime,
         stopTime: form.stopTime,
       });
-      wo.save(`WO_${form.storeNumber}_${form.woNumber || 'draft'}.pdf`);
+      const blob = new Blob([woBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `WO_${form.storeNumber}_${form.woNumber || 'draft'}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('PDF generation failed:', err);
     }
