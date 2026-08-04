@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
       });
       const invBase64 = Buffer.from(invPdf.output('arraybuffer')).toString('base64');
 
-      const woPdf = generateWorkOrderPDF({
+      const woPdfBytes = await generateWorkOrderPDF({
         storeNumber: body.storeNumber,
         woNumber: body.woNumber,
         ...body.workOrderData,
       });
-      const woBase64 = Buffer.from(woPdf.output('arraybuffer')).toString('base64');
+      const woBase64 = Buffer.from(woPdfBytes).toString('base64');
 
       await sendEmail({
         to,
