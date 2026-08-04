@@ -41,11 +41,11 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   // Time Out field: fill area starting at x=270, same row → pdf-lib y=248
 
   const printNameX = 90;
-  const dateX = 270;
+  const dateX = 240;
   const timeInX = 90;
-  const timeOutX = 270;
-  const row1Y = 278; // Print Name / Date row
-  const row2Y = 248; // Time In / Time Out row
+  const timeOutX = 253;
+  const row1Y = 289; // Print Name / Date row
+  const row2Y = 259; // Time In / Time Out row
 
   // Format values
   const techName = data.technician || '';
