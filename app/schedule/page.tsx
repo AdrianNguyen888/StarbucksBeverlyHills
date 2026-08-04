@@ -90,6 +90,30 @@ export default function SchedulePage() {
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
+              // Only delete truly untouched jobs — scheduled status, no tech, no WO#, no times
+              const toDelete = jobs.filter((j) =>
+                j.status === 'scheduled' && !j.assignedTech && !j.woNumber
+                && !j.startTime && !j.stopTime && !j.workizJobId
+              );
+              if (toDelete.length === 0) { alert('No untouched jobs to delete. Use Shift+Click to select individual jobs.'); return; }
+              if (!confirm(`Delete ${toDelete.length} untouched job(s) (no tech, no WO#, no times, not pushed to Workiz)? This cannot be undone.`)) return;
+              let ok = 0;
+              for (const job of toDelete) {
+                try {
+                  const res = await fetch(`/api/jobs/${job.id}`, { method: 'DELETE' });
+                  if (res.ok) ok++;
+                } catch {}
+              }
+              alert(`Deleted ${ok} job(s).`);
+              const r = await fetch('/api/jobs'); const d = await r.json();
+              if (Array.isArray(d)) setJobs(d);
+            }}
+            className="px-3 py-1 rounded text-sm bg-red-900/40 text-red-300 hover:bg-red-900/60 border border-red-800"
+          >
+            Delete Untouched
+          </button>
+          <button
+            onClick={async () => {
               const unpushed = jobs.filter((j) => !j.workizJobId);
               if (unpushed.length === 0) { alert('All jobs already pushed to Workiz.'); return; }
               if (!confirm(`Push ${unpushed.length} job(s) to Workiz?`)) return;
@@ -148,6 +172,25 @@ export default function SchedulePage() {
             {technicians.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           <button onClick={bulkAssign} disabled={!bulkTech} className="px-3 py-1 bg-[#00A4C7] text-white rounded text-sm disabled:opacity-50">Assign</button>
+          <button
+            onClick={async () => {
+              if (!confirm(`Delete ${selectedJobs.size} selected job(s)? This cannot be undone.`)) return;
+              let ok = 0;
+              for (const id of selectedJobs) {
+                try {
+                  const res = await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+                  if (res.ok) ok++;
+                } catch {}
+              }
+              const r = await fetch('/api/jobs'); const d = await r.json();
+              if (Array.isArray(d)) setJobs(d);
+              setSelectedJobs(new Set());
+              alert(`Deleted ${ok} job(s).`);
+            }}
+            className="px-3 py-1 bg-red-900/40 text-red-300 rounded text-sm border border-red-800 hover:bg-red-900/60"
+          >
+            Delete
+          </button>
           <button onClick={() => setSelectedJobs(new Set())} className="px-3 py-1 text-gray-400 hover:text-white text-sm">Clear</button>
         </div>
       )}
