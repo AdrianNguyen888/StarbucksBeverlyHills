@@ -137,7 +137,7 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
     'non-slip footwear.  Drive thru cleaned 30\' before drive to 10\' after the service window. Pictures are required for payment with a minimum of 12 before & after photos ' +
     'covering 6 areas: front door entry, sidewalk, patio (if applicable), drive-thru pick-up window, between ordering area and pick-up window, and drive-thru ordering area. ' +
     '1 storefront overview photo showing the door number is also required. Photos must be submitted within 24 business hours of completion. ' +
-    'Report back to Account Manager if there are any safety/security issues noted during services.';
+    'Report back to Account Manager if there are any safety/security issues noted during services. Squeegee overspray off windows after pressure wash is completed.';
 
   const instrLines = doc.splitTextToSize(instrText, pageWidth - margin * 2 - 8);
   doc.text(instrLines, margin + 4, y + 10);
@@ -187,14 +187,10 @@ export function generateWorkOrderPDF(data: WorkOrderData): jsPDF {
     'Pre treat all heavy stains using "Green" chemicals',
     'Remove tables and chairs & replace after service',
     'Sidewalks, patio, and backdoor pad power washed',
-    'Take before and after photos (12 minimum — 6 areas required)',
-    'Areas: front door, sidewalk, patio, drive-thru pick-up window,',
-    'between ordering & pick-up area, drive-thru ordering area',
-    '1 storefront overview showing door number',
-    'Submit photos within 24 business hours of completion',
+    'Take 12+ before & after photos covering 6 areas (submit within 24hrs)',
     'Make sure  wastewater properly disposed of',
     'Wipe down windows of any over spray',
-    'Photos sent to   Starbucks@gosuperclean.com',
+    'Photos sent to Starbucks@gosuperclean.com within 24 business hours',
   ];
 
   for (const item of checklistItems) {
