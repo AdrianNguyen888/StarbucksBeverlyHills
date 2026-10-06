@@ -1,6 +1,4 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import fs from 'fs';
-import path from 'path';
 
 interface WorkOrderData {
   storeNumber: string;
@@ -16,24 +14,26 @@ interface WorkOrderData {
   stopTime: string;
 }
 
-export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Array> {
-  let templateBytes: Buffer | ArrayBuffer;
-
-  // Strategy 1: direct filesystem read (works locally and with outputFileTracingIncludes on Vercel)
-  const templatePath = path.join(process.cwd(), 'public', 'wo-templates', `${data.storeNumber}.pdf`);
-  try {
-    templateBytes = fs.readFileSync(templatePath);
-  } catch {
-    // Strategy 2: fetch from the app's own public URL (Vercel CDN always has public/ files)
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/wo-templates/${data.storeNumber}.pdf`);
-    if (!response.ok) {
-      throw new Error(`WO template not found for store ${data.storeNumber}`);
-    }
-    templateBytes = await response.arrayBuffer();
+function getBaseUrl(): string {
+  // Client side
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
   }
+  // Server side (Vercel provides VERCEL_URL without protocol)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return 'http://localhost:3000';
+}
+
+export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Array> {
+  const baseUrl = getBaseUrl();
+  const templateUrl = `${baseUrl}/wo-templates/${data.storeNumber}.pdf`;
+  const response = await fetch(templateUrl);
+  if (!response.ok) {
+    throw new Error(`WO template not found for store ${data.storeNumber}`);
+  }
+  const templateBytes = await response.arrayBuffer();
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   const pages = pdfDoc.getPages();
@@ -41,14 +41,12 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontSize = 9;
 
-  // PDF coordinate system: origin is BOTTOM-LEFT, y increases upward
-  // Field positions derived from bbox analysis of the GoSuperClean Sign Off Sheet PDF:
   const printNameX = 90;
   const dateX = 240;
   const timeInX = 90;
   const timeOutX = 253;
-  const row1Y = 289; // Print Name / Date row
-  const row2Y = 259; // Time In / Time Out row
+  const row1Y = 289;
+  const row2Y = 259;
 
   const techName = data.technician || '';
   const dateStr = formatDateShort(data.serviceDate);
