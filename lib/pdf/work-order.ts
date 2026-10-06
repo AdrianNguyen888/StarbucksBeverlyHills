@@ -56,12 +56,16 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   // Signature/Print Name line underline at fitz y=543 -> pdf-lib y=249; text ON the underline
   // Time In/Time Out underline at fitz y=608 -> pdf-lib y=184; text ON the underline
   // Left col x=75 (centered in 163pt field starting x=29), right col x=270 (centered in 130pt field starting x=207)
-  const printNameX = 75;
-  const dateX = 270;
-  const timeInX = 75;
-  const timeOutX = 270;
-  const row1Y = 249; // Print Name / Date row (pdf-lib bottom-left origin)
-  const row2Y = 184; // Time In / Time Out row
+  // Coordinates in pdf-lib system (bottom-left origin, y increases upward, page height 792)
+  // Print Name underline at fitz y=580 -> pdf-lib y=212, text just above at pdf-lib y=215
+  // Time In underline at fitz y=610   -> pdf-lib y=182, text just above at pdf-lib y=185
+  // Left col x=35, right col x=212
+  const printNameX = 35;
+  const dateX = 212;
+  const timeInX = 35;
+  const timeOutX = 212;
+  const row1Y = 215; // Print Name / Date row
+  const row2Y = 185; // Time In / Time Out row // Time In / Time Out row
 
   const techName = data.technician || '';
   const dateStr = formatDateShort(data.serviceDate);
