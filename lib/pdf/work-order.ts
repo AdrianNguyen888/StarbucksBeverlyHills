@@ -52,12 +52,16 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontSize = 9;
 
-  const printNameX = 90;
-  const dateX = 240;
-  const timeInX = 90;
-  const timeOutX = 253;
-  const row1Y = 289;
-  const row2Y = 259;
+  // Coords calibrated from Oct 2026 GoSuperClean Sign Off Sheet PDFs (fitz y -> pdf-lib y = 792 - fitz_y)
+  // Signature/Print Name line underline at fitz y=543 -> pdf-lib y=249; text ON the underline
+  // Time In/Time Out underline at fitz y=608 -> pdf-lib y=184; text ON the underline
+  // Left col x=75 (centered in 163pt field starting x=29), right col x=270 (centered in 130pt field starting x=207)
+  const printNameX = 75;
+  const dateX = 270;
+  const timeInX = 75;
+  const timeOutX = 270;
+  const row1Y = 249; // Print Name / Date row (pdf-lib bottom-left origin)
+  const row2Y = 184; // Time In / Time Out row
 
   const techName = data.technician || '';
   const dateStr = formatDateShort(data.serviceDate);
