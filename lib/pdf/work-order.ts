@@ -17,14 +17,22 @@ interface WorkOrderData {
 }
 
 export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Array> {
-  // Read the base GoSuperClean PDF for this store directly from the filesystem
-  // (server-side fetch with relative URLs fails in Next.js API routes)
+  let templateBytes: Buffer | ArrayBuffer;
+
+  // Strategy 1: direct filesystem read (works locally and with outputFileTracingIncludes on Vercel)
   const templatePath = path.join(process.cwd(), 'public', 'wo-templates', `${data.storeNumber}.pdf`);
-  let templateBytes: Buffer;
   try {
     templateBytes = fs.readFileSync(templatePath);
   } catch {
-    throw new Error(`WO template not found for store ${data.storeNumber}`);
+    // Strategy 2: fetch from the app's own public URL (Vercel CDN always has public/ files)
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/wo-templates/${data.storeNumber}.pdf`);
+    if (!response.ok) {
+      throw new Error(`WO template not found for store ${data.storeNumber}`);
+    }
+    templateBytes = await response.arrayBuffer();
   }
 
   const pdfDoc = await PDFDocument.load(templateBytes);
@@ -34,16 +42,7 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const fontSize = 9;
 
   // PDF coordinate system: origin is BOTTOM-LEFT, y increases upward
-  // Page is 612 x 792 pts
-  // Convert from pdftotext bbox (top-left origin) to pdf-lib (bottom-left origin):
-  // pdf-lib y = 792 - bbox_yMax
-
-  // Field positions (from bbox analysis of the GoSuperClean PDF):
-  // Print Name field: fill area starting at x=90, bbox_y≈506-518 → pdf-lib y = 792-518 = 274, draw at y=278
-  // Date field: fill area starting at x=270, same row → pdf-lib y=278
-  // Time In field: fill area starting at x=90, bbox_y≈536-548 → pdf-lib y = 792-548 = 244, draw at y=248
-  // Time Out field: fill area starting at x=270, same row → pdf-lib y=248
-
+  // Field positions derived from bbox analysis of the GoSuperClean Sign Off Sheet PDF:
   const printNameX = 90;
   const dateX = 240;
   const timeInX = 90;
@@ -51,30 +50,21 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const row1Y = 289; // Print Name / Date row
   const row2Y = 259; // Time In / Time Out row
 
-  // Format values
   const techName = data.technician || '';
   const dateStr = formatDateShort(data.serviceDate);
   const timeInStr = formatTime(data.startTime);
   const timeOutStr = formatTime(data.stopTime);
-
   const textColor = rgb(0, 0, 0);
 
-  // Draw Print Name
   if (techName) {
     page.drawText(techName, { x: printNameX, y: row1Y, size: fontSize, font, color: textColor });
   }
-
-  // Draw Date
   if (dateStr) {
     page.drawText(dateStr, { x: dateX, y: row1Y, size: fontSize, font, color: textColor });
   }
-
-  // Draw Time In
   if (timeInStr) {
     page.drawText(timeInStr, { x: timeInX, y: row2Y, size: fontSize, font, color: textColor });
   }
-
-  // Draw Time Out
   if (timeOutStr) {
     page.drawText(timeOutStr, { x: timeOutX, y: row2Y, size: fontSize, font, color: textColor });
   }
