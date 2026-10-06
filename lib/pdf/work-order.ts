@@ -1,4 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import fs from 'fs';
+import path from 'path';
 
 interface WorkOrderData {
   storeNumber: string;
@@ -15,13 +17,15 @@ interface WorkOrderData {
 }
 
 export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Array> {
-  // Fetch the base GoSuperClean PDF for this store
-  const templateUrl = `/wo-templates/${data.storeNumber}.pdf`;
-  const response = await fetch(templateUrl);
-  if (!response.ok) {
+  // Read the base GoSuperClean PDF for this store directly from the filesystem
+  // (server-side fetch with relative URLs fails in Next.js API routes)
+  const templatePath = path.join(process.cwd(), 'public', 'wo-templates', `${data.storeNumber}.pdf`);
+  let templateBytes: Buffer;
+  try {
+    templateBytes = fs.readFileSync(templatePath);
+  } catch {
     throw new Error(`WO template not found for store ${data.storeNumber}`);
   }
-  const templateBytes = await response.arrayBuffer();
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   const pages = pdfDoc.getPages();
