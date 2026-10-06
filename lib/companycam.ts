@@ -25,6 +25,7 @@ export interface CCProject {
   };
   created_at: number;
   updated_at: number;
+  photo_count?: number;
 }
 
 export interface CCPhotoLabel {
@@ -114,11 +115,21 @@ export async function findStarbucksProject(
       // Prefer the project whose name contains a token matching the WO base number
       // (handles both "WO2024897" old format and "2025530-01" new format)
       const woMatch = matches.find((p) => woMatches(p.name, woNumber));
-      if (woMatch) return woMatch;
+      // If WO matches but has 0 photos, check if another project for this store has photos
+      if (woMatch) {
+        const woMatchHasPhotos = (woMatch.photo_count ?? 0) > 0;
+        if (woMatchHasPhotos) return woMatch;
+        // WO matched but empty — look for another project with photos
+        const withPhotos = matches.find((p) => (p.photo_count ?? 0) > 0);
+        if (withPhotos) return withPhotos;
+        return woMatch; // No alternative — return the WO match anyway
+      }
     }
-    // Return most recently updated match
-    matches.sort((a, b) => b.updated_at - a.updated_at);
-    return matches[0];
+    // Return most recently updated match with photos, fallback to any match
+    const withPhotos = matches.filter((p) => (p.photo_count ?? 0) > 0);
+    const pool = withPhotos.length > 0 ? withPhotos : matches;
+    pool.sort((a, b) => b.updated_at - a.updated_at);
+    return pool[0];
   }
 
   // Fallback: search by address
