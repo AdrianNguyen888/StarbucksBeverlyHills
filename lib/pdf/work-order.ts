@@ -15,11 +15,18 @@ interface WorkOrderData {
 }
 
 function getBaseUrl(): string {
-  // Client side
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  // Server side (Vercel provides VERCEL_URL without protocol)
+  // NEXT_PUBLIC_APP_URL = stable canonical URL (e.g. https://starbucks-beverly-hills.vercel.app)
+  // Set this in Vercel env vars to avoid VERCEL_URL (deployment-specific, can redirect HTML)
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  // VERCEL_PROJECT_PRODUCTION_URL is always the stable production domain (no deploy-specific hash)
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
@@ -31,7 +38,11 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const templateUrl = `${baseUrl}/wo-templates/${data.storeNumber}.pdf`;
   const response = await fetch(templateUrl);
   if (!response.ok) {
-    throw new Error(`WO template not found for store ${data.storeNumber}`);
+    throw new Error(`WO template not found for store ${data.storeNumber} (status ${response.status} from ${templateUrl})`);
+  }
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('pdf') && !contentType.includes('octet-stream')) {
+    throw new Error(`WO template returned wrong content-type: ${contentType} from ${templateUrl}`);
   }
   const templateBytes = await response.arrayBuffer();
 
