@@ -1,4 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import fs from 'fs';
+import path from 'path';
 
 interface WorkOrderData {
   storeNumber: string;
@@ -14,37 +16,16 @@ interface WorkOrderData {
   stopTime: string;
 }
 
-function getBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  // NEXT_PUBLIC_APP_URL = stable canonical URL (e.g. https://starbucks-beverly-hills.vercel.app)
-  // Set this in Vercel env vars to avoid VERCEL_URL (deployment-specific, can redirect HTML)
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL;
-  }
-  // VERCEL_PROJECT_PRODUCTION_URL is always the stable production domain (no deploy-specific hash)
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return 'http://localhost:3000';
-}
-
 export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Array> {
-  const baseUrl = getBaseUrl();
-  const templateUrl = `${baseUrl}/wo-templates/${data.storeNumber}.pdf`;
-  const response = await fetch(templateUrl);
-  if (!response.ok) {
-    throw new Error(`WO template not found for store ${data.storeNumber} (status ${response.status} from ${templateUrl})`);
+  // Read the base GoSuperClean PDF for this store directly from the filesystem
+  // (server-side fetch with relative URLs fails in Next.js API routes)
+  const templatePath = path.join(process.cwd(), 'public', 'wo-templates', `${data.storeNumber}.pdf`);
+  let templateBytes: Buffer;
+  try {
+    templateBytes = fs.readFileSync(templatePath);
+  } catch {
+    throw new Error(`WO template not found for store ${data.storeNumber}`);
   }
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('pdf') && !contentType.includes('octet-stream')) {
-    throw new Error(`WO template returned wrong content-type: ${contentType} from ${templateUrl}`);
-  }
-  const templateBytes = await response.arrayBuffer();
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   const pages = pdfDoc.getPages();
@@ -52,36 +33,48 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontSize = 9;
 
-  // Coords calibrated from Oct 2026 GoSuperClean Sign Off Sheet PDFs (fitz y -> pdf-lib y = 792 - fitz_y)
-  // Signature/Print Name line underline at fitz y=543 -> pdf-lib y=249; text ON the underline
-  // Time In/Time Out underline at fitz y=608 -> pdf-lib y=184; text ON the underline
-  // Left col x=75 (centered in 163pt field starting x=29), right col x=270 (centered in 130pt field starting x=207)
-  // Coordinates in pdf-lib system (bottom-left origin, y increases upward, page height 792)
-  // Print Name underline at fitz y=580 -> pdf-lib y=212, text just above at pdf-lib y=215
-  // Time In underline at fitz y=610   -> pdf-lib y=182, text just above at pdf-lib y=185
-  // Left col x=35, right col x=212
-  const printNameX = 35;
-  const dateX = 212;
-  const timeInX = 35;
-  const timeOutX = 212;
-  const row1Y = 215; // Print Name / Date row
-  const row2Y = 185; // Time In / Time Out row // Time In / Time Out row
+  // PDF coordinate system: origin is BOTTOM-LEFT, y increases upward
+  // Page is 612 x 792 pts
+  // Convert from pdftotext bbox (top-left origin) to pdf-lib (bottom-left origin):
+  // pdf-lib y = 792 - bbox_yMax
 
+  // Field positions (from bbox analysis of the GoSuperClean PDF):
+  // Print Name field: fill area starting at x=90, bbox_y≈506-518 → pdf-lib y = 792-518 = 274, draw at y=278
+  // Date field: fill area starting at x=270, same row → pdf-lib y=278
+  // Time In field: fill area starting at x=90, bbox_y≈536-548 → pdf-lib y = 792-548 = 244, draw at y=248
+  // Time Out field: fill area starting at x=270, same row → pdf-lib y=248
+
+  const printNameX = 90;
+  const dateX = 240;
+  const timeInX = 90;
+  const timeOutX = 253;
+  const row1Y = 248; // Print Name / Date row
+  const row2Y = 218; // Time In / Time Out row
+
+  // Format values
   const techName = data.technician || '';
   const dateStr = formatDateShort(data.serviceDate);
   const timeInStr = formatTime(data.startTime);
   const timeOutStr = formatTime(data.stopTime);
+
   const textColor = rgb(0, 0, 0);
 
+  // Draw Print Name
   if (techName) {
     page.drawText(techName, { x: printNameX, y: row1Y, size: fontSize, font, color: textColor });
   }
+
+  // Draw Date
   if (dateStr) {
     page.drawText(dateStr, { x: dateX, y: row1Y, size: fontSize, font, color: textColor });
   }
+
+  // Draw Time In
   if (timeInStr) {
     page.drawText(timeInStr, { x: timeInX, y: row2Y, size: fontSize, font, color: textColor });
   }
+
+  // Draw Time Out
   if (timeOutStr) {
     page.drawText(timeOutStr, { x: timeOutX, y: row2Y, size: fontSize, font, color: textColor });
   }
