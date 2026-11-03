@@ -142,7 +142,7 @@ export async function findStarbucksProject(
  */
 export async function getProjectPhotos(projectId: string, perPage = 50): Promise<CCPhoto[]> {
   const photos = await ccFetch(`/projects/${projectId}/photos?per_page=${perPage}`) as CCPhoto[];
-  return photos;
+  return photos.sort((a, b) => (b.captured_at || b.created_at || 0) - (a.captured_at || a.created_at || 0));
 }
 
 /**

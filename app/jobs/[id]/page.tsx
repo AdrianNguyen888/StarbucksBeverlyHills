@@ -185,11 +185,7 @@ export default function JobDetailPage() {
         const photos = data.photos || [];
         setCcPhotos(photos);
         // Auto-select only Before/After tagged photos; fall back to none if no labels found
-        const taggedUrls = photos
-          .filter((p: CCPhoto) => p.labels?.some((l) => /before|after/i.test(l.name || l.display_value || l.value || '')))
-          .map((p: CCPhoto) => getPhotoUrl(p))
-          .filter(Boolean);
-        setSelectedPhotos(new Set(taggedUrls));
+        setSelectedPhotos(selectRecentBeforeAfter(photos));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       } else {
@@ -221,11 +217,7 @@ export default function JobDetailPage() {
         setCcProjectId(projectId);
         setGalleryUrl('');
         // Auto-select only Before/After tagged photos; no fallback to all
-        const taggedUrls = photos
-          .filter((p: CCPhoto) => p.labels?.some((l: { name?: string; display_value?: string; value?: string }) => /before|after/i.test(l.name || l.display_value || l.value || '')))
-          .map((p: CCPhoto) => getPhotoUrl(p))
-          .filter(Boolean);
-        setSelectedPhotos(new Set(taggedUrls));
+        setSelectedPhotos(selectRecentBeforeAfter(photos));
         // Auto-fill start/stop times from photo timestamps
         autoFillTimesFromPhotos(photos);
       }
@@ -262,6 +254,20 @@ export default function JobDetailPage() {
       return photo.uris[0].uri;
     }
     return photo.uri || photo.photo_url || '';
+  }
+
+  function selectRecentBeforeAfter(photos: CCPhoto[]): Set<string> {
+    const tagged = photos.filter((p) =>
+      p.labels?.some((l) => /before|after/i.test(l.name || l.display_value || l.value || ''))
+    );
+    if (tagged.length === 0) return new Set();
+    const mostRecentTs = Math.max(...tagged.map((p) => p.captured_at || p.created_at || 0));
+    const windowStart = mostRecentTs - 6 * 60 * 60; // 6 hours back
+    const urls = tagged
+      .filter((p) => (p.captured_at || p.created_at || 0) >= windowStart)
+      .map((p) => getPhotoUrl(p))
+      .filter(Boolean);
+    return new Set(urls);
   }
 
   function getThumbUrl(photo: CCPhoto): string {
