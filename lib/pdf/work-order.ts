@@ -48,8 +48,8 @@ export async function generateWorkOrderPDF(data: WorkOrderData): Promise<Uint8Ar
   const dateX = 240;
   const timeInX = 90;
   const timeOutX = 253;
-  const row1Y = 289; // Print Name / Date row
-  const row2Y = 259; // Time In / Time Out row
+  const row1Y = 248; // Print Name / Date row
+  const row2Y = 218; // Time In / Time Out row
 
   // Format values
   const techName = data.technician || '';
