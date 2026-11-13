@@ -71,20 +71,24 @@ export default function GeneratePage() {
             setPreviewUrl(URL.createObjectURL(blob));
           }
         } else {
-          const { generateWorkOrderPDF } = await import('@/lib/pdf/work-order');
-          const bytes = await generateWorkOrderPDF({
-            storeNumber: form.storeNumber,
-            woNumber: form.woNumber,
-            address: form.address,
-            city, state, zip,
-            storePhone: form.storePhone,
-            serviceDate: form.serviceDate,
-            technician: form.technician,
-            startTime: form.startTime,
-            stopTime: form.stopTime,
+          const res = await fetch('/api/generate-wo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storeNumber: form.storeNumber,
+              woNumber: form.woNumber,
+              address: form.address,
+              city, state, zip,
+              storePhone: form.storePhone,
+              serviceDate: form.serviceDate,
+              technician: form.technician,
+              startTime: form.startTime,
+              stopTime: form.stopTime,
+            }),
           });
+          if (!res.ok) throw new Error('Failed to generate WO PDF');
           if (!cancelled) {
-            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+            const blob = await res.blob();
             setPreviewUrl(URL.createObjectURL(blob));
           }
         }
@@ -102,7 +106,6 @@ export default function GeneratePage() {
     try {
       const { city, state, zip } = parseCityStateZip();
       const { generateInvoicePDF } = await import('@/lib/pdf/invoice');
-      const { generateWorkOrderPDF } = await import('@/lib/pdf/work-order');
 
       const inv = generateInvoicePDF({
         storeNumber: form.storeNumber,
@@ -115,18 +118,23 @@ export default function GeneratePage() {
       });
       inv.save(`Invoice_${form.storeNumber}_${form.invoiceNumber || 'draft'}.pdf`);
 
-      const woBytes = await generateWorkOrderPDF({
-        storeNumber: form.storeNumber,
-        woNumber: form.woNumber,
-        address: form.address,
-        city, state, zip,
-        storePhone: form.storePhone,
-        serviceDate: form.serviceDate,
-        technician: form.technician,
-        startTime: form.startTime,
-        stopTime: form.stopTime,
+      const res = await fetch('/api/generate-wo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storeNumber: form.storeNumber,
+          woNumber: form.woNumber,
+          address: form.address,
+          city, state, zip,
+          storePhone: form.storePhone,
+          serviceDate: form.serviceDate,
+          technician: form.technician,
+          startTime: form.startTime,
+          stopTime: form.stopTime,
+        }),
       });
-      const blob = new Blob([woBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+      if (!res.ok) throw new Error('Failed to generate WO PDF');
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
