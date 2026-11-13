@@ -1,6 +1,139 @@
 import { NextResponse } from 'next/server';
-import { getJob } from '@/lib/workiz';
+import { getInvoiceAll, getJob } from '@/lib/workiz';
 import { getAllJobs, setAllJobs } from '@/lib/db';
+
+const COMPANYCAM_BASE = 'https://api.companycam.com/v2';
+const LA_TIME_ZONE = 'America/Los_Angeles';
+
+interface CompanyCamProject {
+  id: string | number;
+  name?: string;
+}
+
+interface CompanyCamPhoto {
+  captured_at?: number;
+  labels?: Array<{
+    name?: string;
+    display_value?: string;
+    value?: string;
+  }>;
+}
+
+function responseItems<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (!payload || typeof payload !== 'object') return [];
+
+  const record = payload as Record<string, unknown>;
+  for (const key of ['data', 'results', 'projects', 'photos', 'invoices']) {
+    if (Array.isArray(record[key])) return record[key] as T[];
+  }
+  return [];
+}
+
+function formatLaTime(timestampSeconds: number): string {
+  return new Date(timestampSeconds * 1000).toLocaleTimeString('en-US', {
+    timeZone: LA_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+async function getCompanyCamTimes(storeNumber: string): Promise<{ startTime: string; stopTime: string } | null> {
+  const token = process.env.COMPANYCAM_API_TOKEN;
+  if (!token) return null;
+
+  try {
+    const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+    const projectResponse = await fetch(
+      `${COMPANYCAM_BASE}/projects?query=${encodeURIComponent(storeNumber)}`,
+      { headers },
+    );
+    if (!projectResponse.ok) return null;
+
+    const projects = responseItems<CompanyCamProject>(await projectResponse.json());
+    const project = projects.find((item) => item.name?.includes(storeNumber));
+    if (!project) return null;
+
+    const photoResponse = await fetch(
+      `${COMPANYCAM_BASE}/projects/${encodeURIComponent(String(project.id))}/photos?page=1&per_page=200`,
+      { headers },
+    );
+    if (!photoResponse.ok) return null;
+
+    const photos = responseItems<CompanyCamPhoto>(await photoResponse.json());
+    const tagged = photos.filter(
+      (photo) =>
+        typeof photo.captured_at === 'number' &&
+        photo.captured_at > 0 &&
+        photo.labels?.some((label) =>
+          /before|after/i.test(label.name || label.display_value || label.value || ''),
+        ),
+    );
+    if (tagged.length === 0) return null;
+
+    const mostRecent = Math.max(...tagged.map((photo) => photo.captured_at as number));
+    const windowStart = mostRecent - 6 * 60 * 60;
+    const timestamps = tagged
+      .map((photo) => photo.captured_at as number)
+      .filter((timestamp) => timestamp >= windowStart)
+      .sort((a, b) => a - b);
+    if (timestamps.length === 0) return null;
+
+    return {
+      startTime: formatLaTime(timestamps[0]),
+      stopTime: formatLaTime(timestamps[timestamps.length - 1]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getInvoiceNumber(record: Record<string, unknown>, allowGenericNumber = true): string {
+  for (const [key, value] of Object.entries(record)) {
+    const isInvoiceNumber = /^(invoice[_\s-]*(number|num|no)|display[_\s-]*number)$/i.test(key);
+    const isGenericNumber = allowGenericNumber && /^number$/i.test(key);
+    if (!isInvoiceNumber && !isGenericNumber) continue;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const number = String(value).trim();
+      if (number) return number;
+    }
+  }
+  return '';
+}
+
+function invoiceMatchesJob(
+  invoice: Record<string, unknown>,
+  uuid: string,
+  serialId: string,
+): boolean {
+  const matchValues = new Set([uuid, serialId].filter(Boolean).map((value) => value.toLowerCase()));
+  if (matchValues.size === 0) return false;
+
+  return Object.entries(invoice).some(([key, value]) => {
+    if (!/(job|uuid|serial)/i.test(key)) return false;
+    if (typeof value !== 'string' && typeof value !== 'number') return false;
+    return matchValues.has(String(value).trim().toLowerCase());
+  });
+}
+
+async function findInvoiceNumber(
+  workizRecord: Record<string, unknown>,
+  uuid: string,
+): Promise<string> {
+  const directNumber = getInvoiceNumber(workizRecord, false);
+  if (directNumber) return directNumber;
+
+  try {
+    const response = await getInvoiceAll(50);
+    const invoices = responseItems<Record<string, unknown>>(response);
+    const serialId = String(workizRecord.SerialId || workizRecord.SerialID || '').trim();
+    const invoice = invoices.find((item) => invoiceMatchesJob(item, uuid, serialId));
+    return invoice ? getInvoiceNumber(invoice) : '';
+  } catch {
+    return '';
+  }
+}
 
 // Parse "YYYY-MM-DD HH:MM:SS" → "HH:MM" (time only, for <input type="time">)
 function toTimeOnly(datetime: string): string {
@@ -62,20 +195,36 @@ export async function GET() {
           changes.push(`serviceDate: ${job.serviceDate} → ${workizDate}`);
           job.serviceDate = workizDate;
         }
+      }
 
-        // 3. startTime as HH:MM only
+      // 3. Actual start/stop times from recent Before/After CompanyCam photos.
+      if (newStatus === 'completed' && (!job.startTime || !job.stopTime)) {
+        const companyCamTimes = await getCompanyCamTimes(job.storeNumber);
+        if (companyCamTimes) {
+          if (!job.startTime) {
+            changes.push(`startTime: empty → ${companyCamTimes.startTime} (CompanyCam)`);
+            job.startTime = companyCamTimes.startTime;
+          }
+          if (!job.stopTime) {
+            changes.push(`stopTime: empty → ${companyCamTimes.stopTime} (CompanyCam)`);
+            job.stopTime = companyCamTimes.stopTime;
+          }
+        }
+      }
+
+      // 4. Fall back to Workiz scheduled times only when no actual/manual value exists.
+      if (!job.startTime && jobDateTime) {
         const newStartTime = toTimeOnly(jobDateTime);
-        if (newStartTime && newStartTime !== job.startTime) {
-          changes.push(`startTime: ${job.startTime || 'empty'} → ${newStartTime}`);
+        if (newStartTime) {
+          changes.push(`startTime: empty → ${newStartTime} (scheduled)`);
           job.startTime = newStartTime;
         }
       }
 
-      // 4. stopTime as HH:MM only
-      if (jobEndDateTime) {
+      if (!job.stopTime && jobEndDateTime) {
         const newStopTime = toTimeOnly(jobEndDateTime);
-        if (newStopTime && newStopTime !== job.stopTime) {
-          changes.push(`stopTime: ${job.stopTime || 'empty'} → ${newStopTime}`);
+        if (newStopTime) {
+          changes.push(`stopTime: empty → ${newStopTime} (scheduled)`);
           job.stopTime = newStopTime;
         }
       }
@@ -87,6 +236,15 @@ export async function GET() {
         if (techName && techName !== job.assignedTech) {
           changes.push(`assignedTech: ${job.assignedTech || 'Unassigned'} → ${techName}`);
           job.assignedTech = techName;
+        }
+      }
+
+      // 6. Invoice number from Workiz, when exposed by the job or invoice list.
+      if (!job.invoiceNumber) {
+        const invoiceNumber = await findInvoiceNumber(workizRecord, uuid);
+        if (invoiceNumber) {
+          changes.push(`invoiceNumber: empty → ${invoiceNumber}`);
+          job.invoiceNumber = invoiceNumber;
         }
       }
 

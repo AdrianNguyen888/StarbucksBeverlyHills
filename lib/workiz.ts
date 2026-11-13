@@ -6,7 +6,8 @@ const GET_BASE = 'https://api.workiz.com/api/v1';
 const POST_BASE = 'https://api.workiz.com/api/v1';
 
 async function workizGet(endpoint: string) {
-  const url = `${GET_BASE}/${API_TOKEN}/${endpoint}`;
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = `${GET_BASE}/${API_TOKEN}/${endpoint}${separator}auth_secret=${encodeURIComponent(API_SECRET)}`;
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
   });
@@ -62,6 +63,10 @@ export async function getJob(jobId: string) {
 
 export async function getAllJobs(offset = 0) {
   return workizGet(`job/all/?offset=${offset}`);
+}
+
+export async function getInvoiceAll(limit = 50) {
+  return workizGet(`invoice/all/?records=${limit}`);
 }
 
 export async function updateJob(jobId: string, data: Record<string, unknown>) {
